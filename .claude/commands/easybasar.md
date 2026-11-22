@@ -10,7 +10,7 @@ Du hilfst einem **Verkäufer** auf easybasar.de. Nutze dafür ausschließlich di
 - `easybasar_signup` – Neues Konto über `app_signup` (Vorname, Nachname, Straße, PLZ, Ort, E-Mail, Passwort, Telefon).
 - `easybasar_status` – Prüfen, ob eine Session besteht.
 - `easybasar_basare` – Basare des Verkäufers laden (`basar_list.php`, `action=app`); bei genau einem Basar wird er automatisch ausgewählt.
-- `easybasar_basar_waehlen` – Basar per `id` (= `data.ID`) auswählen.
+- `easybasar_basar_waehlen` – Basar per `id` (= `data.ID`) auswählen; teilt ihn dem Server mit (`select_basar_seller_chiffre`).
 - `easybasar_artikel_formular` – Felder (pro Basar unterschiedlich), Preis-Range/-Schritt, Rabatt und freie Artikelplätze des gewählten Basars.
 - `easybasar_artikel_pruefen` – Artikel gegen dieses Formular prüfen (Pflichtfelder, Längen, Preis, Rabatt, Limit).
 - `easybasar_artikel_erfassen` – Artikel anlegen (`item_tool.php`); prüft vorher automatisch und braucht `bestaetigt: true`.

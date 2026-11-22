@@ -44,7 +44,7 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 - `easybasar_logout` – Session beenden, optional gespeicherte Zugangsdaten löschen
 - `easybasar_status` – Session-Status und letzte Login-Antwort
 - `easybasar_basare` – Basare laden (`basar_list.php`, `action=app`); genau ein Basar → automatisch ausgewählt
-- `easybasar_basar_waehlen` – Basar per `data.ID` auswählen (Voraussetzung für alle Artikel-Aktionen)
+- `easybasar_basar_waehlen` – Basar per `data.ID` auswählen und dem Server mitteilen (`select_basar_seller_chiffre` mit `basar_id`, `privileg=seller`, `mod_seller=true`). Voraussetzung für alle Artikel-Aktionen. Der Server merkt sich die Auswahl in der Session; deshalb wird sie vor jedem Formular-Abruf und direkt vor `item_tool` erneut gesetzt (auch nach einem automatischen Re-Login).
 - `easybasar_artikel_formular` – Erfassungsformular des gewählten Basars (`basar_visible.php`, `update=reset_form`, `privileg=seller`): Felder aus `item_description_fields`, Preis-Range, Rabatt, `item_actual_count`/`item_max_count`
 - `easybasar_artikel_pruefen` – prüft Felder (Pflicht, `maxlength`), Preis (`item_price_min` ≤ Preis ≤ `item_price_max`, Vielfaches von `item_price_div`, in Cent gerechnet), Rabatt (nur wenn `discount_enabled`, nur Werte aus `discount_steps`, vom Nutzer gewählt) und das Artikel-Limit
 - `easybasar_artikel_erfassen` – lädt Formular, prüft und sendet an `item_tool.php`: `price` (z. B. `2.50`), `right=seller`, `big_item=false`, `item_count=1` und je Feld aus `item_description_fields` ein Parameter mit dessen Namen (z. B. `Größe`, `Farbe`, `Beschreibung`). Gibt Meldung und Artikelnummer (`info.additional`) zurück.

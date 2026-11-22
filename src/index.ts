@@ -257,7 +257,11 @@ server.registerTool(
   },
   async () => {
     try {
-      const list = await withSession(() => basare.load(), true);
+      const list = await withSession(async () => {
+        const l = await basare.load();
+        if (basare.selected) await basare.activate(basare.selected);
+        return l;
+      }, true);
       const sel = basare.selected;
       return ok({
         ausgewaehlt: sel ? summarize(sel) : null,
@@ -287,8 +291,11 @@ server.registerTool(
   },
   async ({ id }) => {
     try {
-      const b = await withSession(() => basare.select(id), true);
-      return ok({ ausgewaehlt: summarize(b) });
+      const { b, res } = await withSession(async () => {
+        const b = await basare.select(id);
+        return { b, res: await basare.activate(b) };
+      }, true);
+      return text([render(res), JSON.stringify({ ausgewaehlt: summarize(b) }, null, 2)].filter((t) => t !== "OK").join("\n\n"));
     } catch (e) {
       return fail(e);
     }
@@ -307,6 +314,8 @@ const itemSchema = {
 async function formForSelectedBasar() {
   return withSession(async () => {
     const basar = await basare.require();
+    // Bei jedem Aufruf neu setzen: nach einem Re-Login kennt der Server die Auswahl nicht mehr.
+    await basare.activate(basar);
     const f = await loadForm(api);
     if (f.form.basar_id && f.form.basar_id !== basar.ID) {
       throw new Error(
@@ -391,10 +400,11 @@ server.registerTool(
             "Artikel wurde nicht erfasst.",
         );
       }
-      const res = await withSession(
-        () => api.request("item_tool", "POST", itemToolData(r.normalisiert!)),
-        true,
-      );
+      // Basar direkt vor dem Senden erneut setzen (auch beim Retry nach Re-Login).
+      const res = await withSession(async () => {
+        await basare.activate(basar);
+        return api.request("item_tool", "POST", itemToolData(r.normalisiert!));
+      }, true);
       const frei = Math.max(0, f.item.item_max_count - f.item.item_actual_count - 1);
       return text(
         [

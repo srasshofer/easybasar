@@ -98,6 +98,18 @@ export class BasarState {
     return b;
   }
 
+  /**
+   * Teilt dem Server den Basar mit (select_basar_seller_chiffre). Der Server merkt sich die Auswahl
+   * in der Session; basar_visible/item_tool beziehen sich danach auf diesen Basar.
+   */
+  async activate(b: Basar): Promise<unknown> {
+    return this.api.request("select_basar_seller_chiffre", "POST", {
+      basar_id: b.ID,
+      privileg: "seller",
+      mod_seller: "true",
+    });
+  }
+
   /** Für Artikel-Aktionen: liefert den gewählten Basar oder verlangt eine Auswahl. */
   async require(): Promise<Basar> {
     if (!this.selected) await this.load();
