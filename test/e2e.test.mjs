@@ -35,6 +35,7 @@ const srv = http.createServer((req, res) => {
     }
     if (!selected) return json({ error: { response: "visible", number: 500, msg: "Kein Basar gewählt.", solution: "" } });
     if (ep === "basar_visible") return json({ info: { ...form, form: { ...form.form, basar_id: selected } } });
+    if (ep === "item_all_get") return json({"itemlist":{"270":{"reset":1,"add":[{"id":"9479","number":"20115715","print":0,"status":0,"edit":1,"chiffre":"201","desc":"L schwarz Kinder Skibrille Briko","discount":0,"price":5.5,"sold_price":5.5},{"id":"27002241","number":"4110000167149","print":0,"status":0,"edit":1,"chiffre":"201","desc":"42 gelb Skisocken HEAD","discount":0,"price":3,"sold_price":3},{"id":"1","number":"777","edit":0,"desc":"gesperrt","price":1}]}}});
     if (ep === "api_sel_actions") {
       if (data.__path !== "php") return res.writeHead(404).end();
       const n = [].concat(data["iid[]"]).length;
@@ -103,17 +104,35 @@ test("Artikel bearbeiten: action=edit, NumberEdit, nur nicht-leere Felder, Rabat
   assert.match(bad.text, /Schritten/);
 });
 
-test("Artikel löschen: api/php/api_sel_actions, itemDeleteFinal, iid[] (mehrere)", async () => {
-  const r = await call("easybasar_artikel_loeschen", { artikel_ids: ["11", "12"], bestaetigt: true });
+test("Artikelliste: item_all_get mit Modul 270", async () => {
+  const r = await call("easybasar_artikel_liste", {});
+  assert.equal(r.err, false, r.text);
+  assert.match(r.text, /"anzahl": 3/);
+  assert.match(r.text, /"artikelnummer": "4110000167149"/);
+  assert.equal(posts.filter((p) => p.ep === "item_all_get").at(-1).data.modul, "270");
+});
+
+test("Artikel löschen: Nummer → ID aus Liste, api/php, itemDeleteFinal, iid[]", async () => {
+  const r = await call("easybasar_artikel_loeschen", { artikelnummern: ["4110000167149", "20115715"], bestaetigt: true });
   assert.equal(r.err, false, r.text);
   assert.match(r.text, /^Artikel wurde gelöscht 2/);
   assert.doesNotMatch(r.text, /707/);
   const d = posts.filter((p) => p.ep === "api_sel_actions").at(-1).data;
   assert.equal(d.__path, "php");
   assert.equal(d.action, "itemDeleteFinal");
-  assert.deepEqual(d["iid[]"], ["11", "12"]);
-  const no = await call("easybasar_artikel_loeschen", { artikel_ids: ["11"] });
+  assert.deepEqual(d["iid[]"], ["27002241", "9479"]);
+  const n = posts.filter((p) => p.ep === "api_sel_actions").length;
+  const miss = await call("easybasar_artikel_loeschen", { artikelnummern: ["4110000167149", "000"], bestaetigt: true });
+  assert.equal(miss.err, true);
+  assert.match(miss.text, /Nicht .* gefunden: 000\. Nichts gelöscht/);
+  assert.equal(posts.filter((p) => p.ep === "api_sel_actions").length, n, "bei unbekannter Nummer nichts senden");
+  const no = await call("easybasar_artikel_loeschen", { artikelnummern: ["4110000167149"] });
   assert.equal(no.err, true, "ohne Bestätigung kein Löschen");
+});
+
+test("Bearbeiten: unbekannter oder gesperrter Artikel wird nicht gesendet", async () => {
+  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "000", preis: 1, bestaetigt: true })).text, /nicht unter den erfassten/);
+  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "777", preis: 1, bestaetigt: true })).text, /kann nicht mehr bearbeitet/);
 });
 
 test("ohne Bestätigung kein Erfassen", async () => {

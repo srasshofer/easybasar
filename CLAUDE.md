@@ -32,5 +32,5 @@ Danach: Claude Code neu starten, `/easybasar` eingeben.
 
 - **JWT** ist umgesetzt (0.7.0): Login übernimmt `info.message.jwt`; Session-Erneuerung per `app_login` mit `o/v/c/l` + `Authorization: Bearer <jwt>` (Erfolg `info.number == 2205`, neuer JWT ersetzt den alten). Gespeichert wird nur `{user, jwt}`, nie das Passwort. Fehler 2211 → Nutzer fragen, dann `force_logout=true`. Logout-Endpunkt wird nicht gebraucht.
 - **Rabatt:** Beim Bearbeiten Parameter `discount` (bekannt). Beim Erfassen noch nicht bestätigt, ob ebenfalls `discount` – bis dahin bricht Erfassen mit Rabatt > 0 ab.
-- **Löschen:** `iid[]` – unklar, ob Artikelnummer (Barcode) oder interne ID; klärt sich mit der Artikelliste.
-- **Meine Artikelliste:** Endpunkt fehlt.
+- **Artikelliste** (`item_all_get`) liefert `id` (intern, für `iid[]` beim Löschen) und `number` (Barcode). Nicht lokal speichern – vor Bearbeiten/Löschen frisch laden.
+- **Bearbeiten:** `NumberEdit` = `number` (Barcode) angenommen (App-Variable heißt `itemNumber`) – noch nicht bestätigt.

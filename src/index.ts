@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError, SessionExpired, jwtPayload } from "./client.js";
 import { render } from "./format.js";
 import { BasarState, summarize } from "./basar.js";
+import { LISTEN, ListName, findItems, loadItems } from "./liste.js";
 import {
   LIMIT_TEXT,
   checkItem,
@@ -35,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.8.0" });
+const server = new McpServer({ name: "easybasar", version: "0.9.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -525,7 +526,11 @@ server.registerTool(
       if (!r.ok) return { isError: true, ...ok({ basar: basar.Basar, ...r }) };
       const res = await withSession(async () => {
         await basare.activate(basar);
-        return api.request("item_tool", "POST", itemEditData(r.normalisiert!, artikelnummer.trim()));
+        const { found } = findItems(await loadItems(api, ["erfasst"]), [artikelnummer]);
+        const item = found[0];
+        if (!item) throw new Error(`Artikel ${artikelnummer} ist nicht unter den erfassten Artikeln dieses Basars.`);
+        if (!item.bearbeitbar) throw new Error(`Artikel ${item.artikelnummer} kann nicht mehr bearbeitet werden.`);
+        return api.request("item_tool", "POST", itemEditData(r.normalisiert!, item.artikelnummer));
       }, true);
       return text(
         [render(res), JSON.stringify({ artikelnummer, basar: basar.Basar }, null, 2)].join("\n\n"),
@@ -537,39 +542,91 @@ server.registerTool(
 );
 
 server.registerTool(
+  "easybasar_artikel_liste",
+  {
+    title: "Meine Artikel",
+    description:
+      "Liest die Artikel des Verkäufers im gewählten Basar (item_all_get.php). Listen: erfasst, " +
+      "abgegeben (Check-in), verkauft, zurueck (Check-out). Liefert je Artikel id, artikelnummer, " +
+      "beschreibung, preis, rabatt, verkaufspreis, gedruckt, bearbeitbar. Wird nicht zwischengespeichert.",
+    inputSchema: {
+      listen: z
+        .array(z.enum(Object.keys(LISTEN) as [ListName, ...ListName[]]))
+        .min(1)
+        .default(["erfasst"]),
+    },
+  },
+  async ({ listen }) => {
+    try {
+      const { basar, items } = await withSession(async () => {
+        const basar = await basare.require();
+        await basare.activate(basar);
+        return { basar, items: await loadItems(api, listen) };
+      }, true);
+      const summe = items.reduce((s, i) => s + (i.verkaufspreis ?? i.preis), 0);
+      return ok({
+        basar: basar.Basar,
+        listen: listen.map((l) => LISTEN[l].titel),
+        anzahl: items.length,
+        summe: Math.round(summe * 100) / 100,
+        artikel: items,
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
   "easybasar_artikel_loeschen",
   {
     title: "Artikel löschen",
     description:
-      "Löscht Artikel endgültig (api/php/api_sel_actions.php, action=itemDeleteFinal, iid[]). " +
+      "Löscht erfasste Artikel endgültig (api/php/api_sel_actions.php, action=itemDeleteFinal, iid[]). " +
+      "Angabe per Artikelnummer (Barcode); die interne ID wird frisch aus der Liste „erfasst“ ermittelt. " +
       "Gelöschte Artikel können nicht mehr abgegeben werden – ihr Etikett muss vernichtet werden. " +
       "Ein gelöschter Artikel gibt einen Platz im Artikel-Limit frei. " +
       "Nur nach ausdrücklicher Bestätigung des Nutzers (bestaetigt=true).",
     inputSchema: {
-      artikel_ids: z
+      artikelnummern: z
         .array(z.string().min(1))
         .min(1)
-        .describe("ID(s) der zu löschenden Artikel (iid[])"),
+        .describe("Artikelnummer(n) aus easybasar_artikel_liste"),
       bestaetigt: z.literal(true).describe("Nutzer hat das endgültige Löschen bestätigt"),
     },
   },
-  async ({ artikel_ids }) => {
+  async ({ artikelnummern }) => {
     try {
-      const basar = await withSession(() => basare.require(), true);
-      const res = await withSession(async () => {
+      const { basar, res, found } = await withSession(async () => {
+        const basar = await basare.require();
         await basare.activate(basar);
-        return api.request(
+        const { found, missing } = findItems(await loadItems(api, ["erfasst"]), artikelnummern);
+        if (missing.length) {
+          throw new Error(
+            `Nicht in den erfassten Artikeln dieses Basars gefunden: ${missing.join(", ")}. Nichts gelöscht.`,
+          );
+        }
+        const res = await api.request(
           "api_sel_actions",
           "POST",
-          { action: "itemDeleteFinal", "iid[]": artikel_ids.map((x) => x.trim()) },
+          { action: "itemDeleteFinal", "iid[]": found.map((i) => i.id) },
           { Accept: "application/json" },
           "php",
         );
+        return { basar, res, found };
       }, true);
       return text(
         [
           render(res),
-          JSON.stringify({ basar: basar.Basar, geloescht: artikel_ids, hinweis: "Etikett(en) vernichten." }, null, 2),
+          JSON.stringify(
+            {
+              basar: basar.Basar,
+              geloescht: found.map((i) => ({ artikelnummer: i.artikelnummer, beschreibung: i.beschreibung })),
+              hinweis: "Etikett(en) vernichten.",
+            },
+            null,
+            2,
+          ),
         ].join("\n\n"),
       );
     } catch (e) {
