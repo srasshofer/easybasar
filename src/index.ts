@@ -113,7 +113,14 @@ async function doLogin(opts: {
   if (!creds) throw new NeedsLogin();
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
   if (remember) await saveCredentials(creds);
-  return { loggedIn: true, user: creds.user, source, saved: remember, response };
+  return {
+    loggedIn: true,
+    user: creds.user,
+    source,
+    saved: remember,
+    sessionCookies: api.cookieNames,
+    response,
+  };
 }
 
 /** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (response = "login") einmal neu. */
@@ -225,6 +232,7 @@ server.registerTool(
     ok({
       loggedIn: api.isLoggedIn,
       user: api.currentUser,
+      sessionCookies: api.cookieNames,
       savedCredentials: (await loadCredentials())?.user ?? null,
       credentialsFile,
       lastLogin: api.lastLogin,

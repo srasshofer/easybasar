@@ -1,5 +1,6 @@
 // Entspricht den Konstanten aus der easybasar-App.
-export const apiURL = "https://www.easybasar.de";
+// EASYBASAR_API_URL nur für Tests (z. B. Mock-Server).
+export const apiURL = process.env.EASYBASAR_API_URL ?? "https://www.easybasar.de";
 export const apiVersion = "v0.8";
 export const apiInstance = "a";
 export const clientVersion = "1.0.0";

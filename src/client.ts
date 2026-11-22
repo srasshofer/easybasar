@@ -91,7 +91,7 @@ export class ApiGeneralRequest {
     const init: RequestInit = {
       method,
       headers: { ...headers, ...this.cookieHeader() },
-      redirect: "follow",
+      redirect: "manual",
     };
     if (method === "GET") {
       if ([...params].length) url += (url.includes("?") ? "&" : "?") + params;
@@ -100,9 +100,26 @@ export class ApiGeneralRequest {
       (init.headers as Record<string, string>)["Content-Type"] =
         "application/x-www-form-urlencoded; charset=UTF-8";
     }
-    const res = await fetch(url, init);
-    this.storeCookies(res);
-    return res;
+    // Redirects selbst folgen, damit Set-Cookie aus 30x-Antworten nicht verloren geht.
+    for (let hop = 0; hop < 10; hop++) {
+      const res = await fetch(url, init);
+      this.storeCookies(res);
+      const location = res.headers.get("location");
+      if (res.status < 300 || res.status >= 400 || !location) return res;
+      url = new URL(location, url).toString();
+      if (res.status !== 307 && res.status !== 308) {
+        init.method = "GET";
+        delete init.body;
+        delete (init.headers as Record<string, string>)["Content-Type"];
+      }
+      init.headers = { ...(init.headers as Record<string, string>), ...this.cookieHeader() };
+    }
+    throw new Error(`Zu viele Weiterleitungen bei ${endpoint}`);
+  }
+
+  /** Namen der aktuell gehaltenen Session-Cookies (ohne Werte). */
+  get cookieNames(): string[] {
+    return [...this.cookies.keys()];
   }
 
   get currentUser(): string | undefined {
@@ -120,9 +137,16 @@ export class ApiGeneralRequest {
       l: language,
     };
     if (forceLogout) postData.force_logout = "true";
+    // Frische Session: alte Cookies verwerfen, sonst wird ggf. eine abgelaufene Session weitergereicht.
+    this.cookies.clear();
+    this.loginResponse = null;
     this.loginResponse = await this.request("app_login", "POST", postData, {
       Accept: "application/json",
     });
+    if (!this.cookies.size) {
+      this.loginResponse = null;
+      throw new Error("Login-Antwort ohne Session-Cookie – weitere Aufrufe wären nicht angemeldet.");
+    }
     this.user = user;
     this.password = password;
     return this.loginResponse;
@@ -149,9 +173,22 @@ export class ApiGeneralRequest {
 
   private storeCookies(res: Response) {
     for (const c of res.headers.getSetCookie?.() ?? []) {
-      const [pair] = c.split(";");
+      const [pair, ...attrs] = c.split(";");
       const i = pair.indexOf("=");
-      if (i > 0) this.cookies.set(pair.slice(0, i).trim(), pair.slice(i + 1).trim());
+      if (i <= 0) continue;
+      const name = pair.slice(0, i).trim();
+      const value = pair.slice(i + 1).trim();
+      const attr = (k: string) =>
+        attrs.map((a) => a.trim()).find((a) => a.toLowerCase().startsWith(k + "="))?.slice(k.length + 1);
+      const maxAge = attr("max-age");
+      const expires = attr("expires");
+      const expired =
+        (maxAge !== undefined && Number(maxAge) <= 0) ||
+        (expires !== undefined && Date.parse(expires) <= Date.now()) ||
+        value === "" ||
+        value === "deleted";
+      if (expired) this.cookies.delete(name);
+      else this.cookies.set(name, value);
     }
   }
 }

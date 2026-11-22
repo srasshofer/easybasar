@@ -33,7 +33,9 @@ Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 | `userfiles` | `https://www.easybasar.de/userfiles` |
 | `pdfs`      | `https://www.easybasar.de/pdfs` |
 
-Endpunkte werden als `<basis>/<endpoint>.php` aufgerufen, Parameter als `application/x-www-form-urlencoded`. Session-Cookies werden über alle Aufrufe gehalten.
+Endpunkte werden als `<basis>/<endpoint>.php` aufgerufen, Parameter als `application/x-www-form-urlencoded`.
+
+Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufruf mitgeschickt (auch über Redirects), vom Server gelöschte Cookies werden entfernt, und jeder (Re-)Login startet mit leerer Cookie-Liste. Setzt der Login kein Cookie, gilt er als fehlgeschlagen. Antwortet ein Endpunkt mit `error.response = "login"`, wird einmal automatisch neu eingeloggt. Test: `npm test`.
 
 ## Tools
 
