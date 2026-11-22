@@ -94,7 +94,15 @@ export function describeForm(f: FormInfo) {
     beschreibungGesamtMax: form.item_description_length,
     ean: Boolean(form.item_register_ean),
     rabatt: d?.discount_enabled
-      ? { moeglich: true, ab: d.discount_begin || undefined, stufen: d.discount_steps ?? [] }
+      ? {
+          moeglich: true,
+          ab: d.discount_begin || undefined,
+          stufen: (d.discount_steps ?? [])
+            .map(Number)
+            .filter((x) => x > 0)
+            .map((x) => ({ wert: x, anzeige: pct(x) })),
+          hinweis: "Nutzer wählt selbst: kein Rabatt (0) oder eine Stufe.",
+        }
       : { moeglich: false },
   };
 }
@@ -190,20 +198,27 @@ export function checkItem(f: FormInfo, input: ItemInput, isNew = true, partial =
     preis = (cents / 100).toFixed(2);
   }
 
-  // Rabatt: nur wenn der Basar ihn anbietet; Stufe wählt der Nutzer selbst.
+  // Rabatt: nur wenn der Basar ihn anbietet; der Nutzer wählt selbst – „kein Rabatt“ (0) oder eine Stufe.
+  // Stufen sind Anteile (0.1 = 10 %); Eingabe als Anteil oder Prozent (10) möglich.
   const d = form.discount;
   let rabatt: number | undefined;
+  const given = input.rabatt === undefined ? undefined : normalizeDiscount(Number(input.rabatt));
   if (d?.discount_enabled) {
-    const steps = d.discount_steps ?? [];
-    if (input.rabatt === undefined) {
-      if (!partial) fehler.push(
-        `Dieser Basar bietet Rabatt an${d.discount_begin ? ` (ab ${d.discount_begin})` : ""}. ` +
-          `Bitte den Nutzer eine Stufe wählen lassen: ${steps.join(", ")}.`,
-      );
-    } else if (!steps.map(Number).includes(Number(input.rabatt))) {
-      fehler.push(`Rabatt ${input.rabatt} ist nicht erlaubt. Möglich: ${steps.join(", ")}.`);
-    } else rabatt = Number(input.rabatt);
-  } else if (input.rabatt !== undefined && Number(input.rabatt) !== 0) {
+    const steps = (d.discount_steps ?? []).map(Number).filter((x) => x > 0);
+    const choices = `kein Rabatt, ${steps.map(pct).join(", ")}`;
+    if (given === undefined) {
+      if (!partial) {
+        fehler.push(
+          `Dieser Basar bietet Rabatt an${d.discount_begin ? ` (ab ${d.discount_begin})` : ""}. ` +
+            `Bitte den Nutzer wählen lassen: ${choices}.`,
+        );
+      }
+    } else if (given === 0) {
+      rabatt = 0;
+    } else if (!steps.some((x) => Math.abs(x - given) < 1e-9)) {
+      fehler.push(`Rabatt ${pct(given)} ist nicht erlaubt. Möglich: ${choices}.`);
+    } else rabatt = given;
+  } else if (given) {
     fehler.push("Dieser Basar bietet keinen Rabatt an.");
   }
 
@@ -220,15 +235,29 @@ export function isSessionError(e: unknown): boolean {
   return e instanceof EasybasarError && (e.body.response === "login" || e.body.number === 110);
 }
 
+/** 10 → 0.1, 0.1 → 0.1 */
+export function normalizeDiscount(x: number): number {
+  return x > 1 ? x / 100 : x;
+}
+
+/** 0.1 → "10 %" */
+export const pct = (x: number) => `${Math.round(x * 1000) / 10} %`;
+
+/** Preis wie die App: "2,00" */
+export const priceParam = (preis: string) => preis.replace(".", ",");
+
 /** POST-Daten für item_tool.php aus einem geprüften Artikel. Feldnamen = Namen aus item_description_fields. */
 export function itemToolData(normalized: NonNullable<CheckResult["normalisiert"]>): Record<string, string> {
-  return {
-    price: normalized.preis,
+  // Wie die App: Preis mit Komma, leere Felder weglassen, discount nur bei gewähltem Rabatt.
+  const d: Record<string, string> = {
+    price: priceParam(normalized.preis),
     right: "seller",
     big_item: "false",
     item_count: "1",
-    ...normalized.felder,
   };
+  for (const [k, v] of Object.entries(normalized.felder)) if (v) d[k] = v;
+  if (normalized.rabatt) d.discount = String(normalized.rabatt);
+  return d;
 }
 
 /** POST-Daten zum Bearbeiten (item_tool.php, action=edit, NumberEdit). Nur nicht-leere Felder. */
@@ -237,14 +266,14 @@ export function itemEditData(
   itemNumber: string,
 ): Record<string, string> {
   const d: Record<string, string> = {
-    price: normalized.preis,
+    price: priceParam(normalized.preis),
     right: "seller",
     big_item: "false",
     action: "edit",
     NumberEdit: itemNumber,
   };
   for (const [k, v] of Object.entries(normalized.felder)) if (v) d[k] = v;
-  if (normalized.rabatt !== undefined) d.discount = String(normalized.rabatt);
+  if (normalized.rabatt) d.discount = String(normalized.rabatt);
   return d;
 }
 

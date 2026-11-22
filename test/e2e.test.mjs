@@ -86,7 +86,7 @@ test("Artikel erfassen: Login → Basar → Formular → item_tool", async () =>
   assert.match(r.text, /"freiePlaetze": 6/);
 
   const { __path, ...sent } = posts.find((p) => p.ep === "item_tool").data;
-  assert.deepEqual(sent, { price: "2.50", right: "seller", big_item: "false", item_count: "1", "Größe": "104", Farbe: "blau", Beschreibung: "Regenjacke" });
+  assert.deepEqual(sent, { price: "2,50", right: "seller", big_item: "false", item_count: "1", "Größe": "104", Farbe: "blau", Beschreibung: "Regenjacke" });
   assert.deepEqual(posts.find((p) => p.ep === "basar_visible").data, { update: "reset_form", privileg: "seller", __path: "includes" });
   assert.deepEqual(posts.find((p) => p.ep === "basar_list").data, { action: "app", __path: "includes" });
   const i = posts.findIndex((p) => p.ep === "item_tool");
@@ -98,7 +98,7 @@ test("Artikel bearbeiten: action=edit, NumberEdit, nur nicht-leere Felder, Rabat
   assert.equal(r.err, false, r.text);
   assert.match(r.text, /^Artikel wurde geändert 4110000167149/);
   const { __path, ...sent } = posts.filter((p) => p.ep === "item_tool").at(-1).data;
-  assert.deepEqual(sent, { price: "3.00", right: "seller", big_item: "false", action: "edit", NumberEdit: "4110000167149", Farbe: "rot" });
+  assert.deepEqual(sent, { price: "3,00", right: "seller", big_item: "false", action: "edit", NumberEdit: "4110000167149", Farbe: "rot" });
   const bad = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", preis: 3.2, bestaetigt: true });
   assert.equal(bad.err, true);
   assert.match(bad.text, /Schritten/);

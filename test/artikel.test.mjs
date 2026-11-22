@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkItem, describeForm, isSessionError } from "../dist/artikel.js";
+import { checkItem, describeForm, isSessionError, itemToolData } from "../dist/artikel.js";
 import { EasybasarError } from "../dist/client.js";
 
 // Beispielantwort von basar_visible.php (info)
@@ -29,13 +29,27 @@ test("Pflichtfeld, Maximallänge, unbekanntes Feld", () => {
   assert.match(checkItem(info, { felder: { Beschreibung: "Buch" }, preis: 1 }).warnungen.join(), /„Größe“ ist leer \(Nur bei Kleidung\)/);
 });
 
-test("Rabatt nur wenn aktiviert und nur erlaubte Stufen", () => {
+test("Rabatt nur wenn aktiviert, Nutzer wählt: kein Rabatt oder Stufe", async () => {
   assert.match(checkItem(info, { felder: full, preis: 1, rabatt: 10 }).fehler.join(), /keinen Rabatt/);
+  assert.equal(checkItem(info, { felder: full, preis: 1, rabatt: 0 }).ok, true);
   const mitRabatt = structuredClone(info);
-  mitRabatt.form.discount = { discount_enabled: true, discount_begin: "2026-11-22 14:00", discount_steps: [0, 25, 50] };
-  assert.match(checkItem(mitRabatt, { felder: full, preis: 1 }).fehler.join(), /Stufe wählen lassen: 0, 25, 50/);
-  assert.match(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 30 }).fehler.join(), /nicht erlaubt/);
-  assert.equal(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 25 }).normalisiert.rabatt, 25);
+  mitRabatt.form.discount = { discount_enabled: true, discount_begin: "Sonntag, 22. November 2026 um 12:00", discount_steps: [0.1, 0.2, 0.3] };
+  assert.match(checkItem(mitRabatt, { felder: full, preis: 1 }).fehler.join(), /wählen lassen: kein Rabatt, 10 %, 20 %, 30 %/);
+  assert.match(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 0.25 }).fehler.join(), /25 % ist nicht erlaubt/);
+  assert.equal(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 0.1 }).normalisiert.rabatt, 0.1);
+  assert.equal(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 20 }).normalisiert.rabatt, 0.2, "Prozent-Eingabe");
+  assert.equal(checkItem(mitRabatt, { felder: full, preis: 1, rabatt: 0 }).normalisiert.rabatt, 0, "kein Rabatt erlaubt");
+  assert.equal(checkItem(mitRabatt, { felder: full, preis: 1 }, false, true).ok, true, "Bearbeiten ohne Rabattangabe");
+  assert.deepEqual(describeForm(mitRabatt).rabatt.stufen.map((x) => x.anzeige), ["10 %", "20 %", "30 %"]);
+});
+
+test("POST-Daten wie die App (Beispiel Turnhose mit 10 % Rabatt)", () => {
+  const mitRabatt = structuredClone(info);
+  mitRabatt.form.discount = { discount_enabled: true, discount_begin: "", discount_steps: [0.1, 0.2, 0.3] };
+  const r = checkItem(mitRabatt, { felder: { Beschreibung: "Turnhose BW" }, preis: 2, rabatt: 0.1 });
+  assert.deepEqual(itemToolData(r.normalisiert), { price: "2,00", right: "seller", big_item: "false", item_count: "1", Beschreibung: "Turnhose BW", discount: "0.1" });
+  const ohne = checkItem(mitRabatt, { felder: { Beschreibung: "Turnhose BW" }, preis: 2, rabatt: 0 });
+  assert.equal(itemToolData(ohne.normalisiert).discount, undefined, "kein Rabatt → kein discount-Parameter");
 });
 
 test("Artikel-Limit", () => {

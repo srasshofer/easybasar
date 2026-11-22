@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.9.1" });
+const server = new McpServer({ name: "easybasar", version: "0.10.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -388,7 +388,10 @@ const itemSchema = {
     .record(z.string())
     .describe("Feldname → Wert, Namen wie in formular.felder (z. B. Größe, Farbe, Beschreibung)"),
   preis: z.union([z.number(), z.string()]).describe('Preis, z. B. 2.5 oder "2,50"'),
-  rabatt: z.number().optional().describe("Nur angeben, wenn der Nutzer eine Rabattstufe gewählt hat"),
+  rabatt: z
+    .number()
+    .optional()
+    .describe("Vom Nutzer gewählter Rabatt: 0 = kein Rabatt, sonst eine Stufe (0.1 oder 10 = 10 %)"),
 };
 
 /** Formular des gewählten Basars laden und prüfen, dass es zu diesem Basar gehört. */
@@ -475,12 +478,6 @@ server.registerTool(
       const { basar, f } = await formForSelectedBasar();
       const r = checkItem(f, { felder, preis, rabatt }, true);
       if (!r.ok) return { isError: true, ...ok({ basar: basar.Basar, ...r }) };
-      if (r.normalisiert!.rabatt) {
-        throw new Error(
-          "Rabatt kann noch nicht übertragen werden (Parameter für item_tool.php unbekannt). " +
-            "Artikel wurde nicht erfasst.",
-        );
-      }
       // Basar direkt vor dem Senden erneut setzen (auch beim Retry nach Re-Login).
       const res = await withSession(async () => {
         await basare.activate(basar);
