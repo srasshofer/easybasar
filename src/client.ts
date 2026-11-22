@@ -30,6 +30,31 @@ export class EasybasarError extends Error {
   }
 }
 
+/** Session abgelaufen und JWT ungültig/abgelaufen → neuer Login mit E-Mail/Passwort nötig. */
+export class SessionExpired extends Error {
+  constructor() {
+    super("Die Anmeldung ist abgelaufen. Bitte neu einloggen.");
+  }
+}
+
+/** Payload eines JWT dekodieren (ohne Signaturprüfung – nur für exp/data). */
+export function jwtPayload(jwt: string): { exp?: number; data?: Record<string, unknown> } | null {
+  const parts = jwt.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/** true, wenn exp vorbei ist (oder der JWT nicht lesbar ist). */
+export function jwtExpired(jwt: string, now = Date.now()): boolean {
+  const p = jwtPayload(jwt);
+  if (!p) return true;
+  return typeof p.exp === "number" ? p.exp * 1000 <= now : false;
+}
+
 export type Method = "GET" | "POST";
 export type Data = Record<string, string | number | boolean>;
 
@@ -42,7 +67,6 @@ export class ApiGeneralRequest {
   private loginResponse: unknown = null;
 
   private user?: string;
-  private password?: string;
 
   get isLoggedIn(): boolean {
     return this.loginResponse !== null;
@@ -133,42 +157,98 @@ export class ApiGeneralRequest {
     return this.isLoggedIn ? this.user : undefined;
   }
 
-  /** Login mit Zugangsdaten zur Laufzeit; bei Erfolg werden sie für Re-Logins gemerkt. */
+  /** Aktueller JWT (zum Erneuern der Session); undefined, wenn keiner vorliegt. */
+  get jwt(): string | undefined {
+    return this.token;
+  }
+
+  /** Wird aufgerufen, wenn der Server einen (neuen) JWT liefert – z. B. zum Speichern. */
+  onJwt?: (user: string, jwt: string) => Promise<void> | void;
+
+  private token?: string;
+
+  private baseLoginData(): Data {
+    return { o: apiInstance, v: apiVersion, c: clientVersion, l: language };
+  }
+
+  /** JWT und Session-Instanz aus info.message übernehmen. */
+  private async takeLoginInfo(res: unknown) {
+    const msg = (res as { info?: { message?: Record<string, unknown> } })?.info?.message;
+    const jwt = typeof msg?.jwt === "string" && msg.jwt ? msg.jwt : undefined;
+    if (jwt) {
+      this.token = jwt;
+      const u = jwtPayload(jwt)?.data?.email;
+      if (typeof u === "string" && u) this.user = u;
+      if (this.user) await this.onJwt?.(this.user, jwt);
+    }
+  }
+
+  /** Login mit E-Mail/Passwort. Das Passwort wird nur für diesen Aufruf verwendet, nicht behalten. */
   async login(user: string, password: string, forceLogout = false) {
-    const postData: Data = {
-      user,
-      password,
-      o: apiInstance,
-      v: apiVersion,
-      c: clientVersion,
-      l: language,
-    };
+    const postData: Data = { user, password, ...this.baseLoginData() };
     if (forceLogout) postData.force_logout = "true";
-    // Frische Session: alte Cookies verwerfen, sonst wird ggf. eine abgelaufene Session weitergereicht.
-    this.cookies.clear();
-    this.loginResponse = null;
-    this.loginResponse = await this.request("app_login", "POST", postData, {
+    // Frische Session: alte Cookies/JWT verwerfen.
+    this.reset();
+    this.user = user;
+    const res = await this.request("app_login", "POST", postData, {
       Accept: "application/json",
     });
     if (!this.cookies.size) {
-      this.loginResponse = null;
+      this.reset();
       throw new Error("Login-Antwort ohne Session-Cookie – weitere Aufrufe wären nicht angemeldet.");
     }
-    this.user = user;
-    this.password = password;
-    return this.loginResponse;
+    this.loginResponse = res;
+    await this.takeLoginInfo(res);
+    return res;
   }
 
-  /** Erneuter Login mit den zuletzt erfolgreichen Zugangsdaten. */
+  /**
+   * Neue Session mit dem JWT holen (wie checkSession der App): app_login nur mit o/v/c/l und
+   * Header Authorization: Bearer <jwt>. Erfolg = info.number 2205 (oder response.data.instance).
+   * Liefert false, wenn kein gültiger JWT vorliegt oder der Server ihn ablehnt.
+   */
+  async renew(jwt = this.token, user = this.user): Promise<boolean> {
+    if (!jwt || jwtExpired(jwt)) return false;
+    let res: unknown;
+    try {
+      res = await this.request("app_login", "POST", this.baseLoginData(), {
+        Accept: "application/json",
+        Authorization: `Bearer ${jwt}`,
+      });
+    } catch (e) {
+      if (e instanceof EasybasarError) return false;
+      throw e;
+    }
+    const r = res as {
+      info?: { number?: unknown };
+      response?: { data?: { instance?: unknown } };
+    };
+    const ok = String(r?.info?.number) === "2205" || r?.response?.data?.instance !== undefined;
+    if (!ok) return false;
+    this.token = jwt;
+    this.user = user ?? (jwtPayload(jwt)?.data?.email as string | undefined);
+    this.loginResponse = res;
+    await this.takeLoginInfo(res);
+    return true;
+  }
+
+  /** Session erneuern (nach Fehler 110): nur per JWT, nie mit Passwort. */
   async relogin() {
-    if (!this.user || !this.password) throw new Error("Nicht eingeloggt.");
-    return this.login(this.user, this.password);
+    if (!(await this.renew())) {
+      this.reset();
+      throw new SessionExpired();
+    }
   }
 
   logout() {
+    this.reset();
+  }
+
+  private reset() {
     this.cookies.clear();
     this.loginResponse = null;
-    this.user = this.password = undefined;
+    this.token = undefined;
+    this.user = undefined;
   }
 
   private cookieHeader(): Record<string, string> {

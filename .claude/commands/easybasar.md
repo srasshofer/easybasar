@@ -22,6 +22,8 @@ Regeln:
    - Kann der Nutzer im Dialog kein `@` eingeben: `(at)` statt `@` schreiben lassen, das wird umgewandelt.
    - Scheitert der Login mit „Nicht eingeloggt …“ oder will der Nutzer den Dialog nicht: Gib ihm den Terminal-Befehl aus der Meldung (`bash ".../login.sh"`) als eigenen Codeblock. Dort gibt er E-Mail und Passwort ein, sie werden geprüft und gespeichert; danach `easybasar_login` erneut aufrufen.
    - Nur als letzte Möglichkeit E-Mail und Passwort im Chat erfragen, mit dem Hinweis, dass das Passwort dann im Verlauf steht.
+   - „Angemeldet bleiben“ (`remember: true`) speichert nur ein Login-Token, nicht das Passwort – das darfst du so erklären.
+   - Meldet der Login, dass das Konto schon auf einem anderen Gerät angemeldet ist: Nutzer fragen, ob alle anderen Sitzungen abgemeldet werden sollen; nur bei Ja `easybasar_login` mit `force_logout: true`.
 2. Meldungen vom Server (Fehler wie Hinweise) liefern die Tools bereits als reinen Text aus `msg` und `solution`. Gib dem Nutzer genau diesen Text wörtlich weiter – **keine Fehlernummern**, keine internen Felder (`response`, `number`, `additional`) und kein JSON.
 3. Erfinde keine Endpunkte. Wenn ein Endpunkt unbekannt ist, frag nach (Name aus dem App-Code, `ApiGeneralRequest().request('<name>', ...)`).
 4. Vor schreibenden Aktionen (Artikel anlegen/löschen, Verkäufernummer anfordern/zurückgeben) den Nutzer bestätigen lassen – gelöschte Artikel können nicht mehr abgegeben werden.

@@ -21,7 +21,7 @@ claude   # im Repo starten; .mcp.json registriert den Server "easybasar"
 
 Empfohlen: einmalig im Terminal `bash login.sh` im Installationsordner – fragt E-Mail und Passwort (verdeckt), prüft sie bei easybasar und speichert sie. `install.sh` bietet das am Ende an.
 
-Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true` oder Häkchen im Dialog). Die Datei ist **unverschlüsselt** (Rechte 0600). Löschen: `easybasar_logout` mit `forget: true`.
+Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true`, Häkchen im Dialog oder `login.sh`) – und zwar **nur E-Mail und JWT, nie das Passwort** (Datei mit Rechten 0600). Läuft die Session ab (Fehler 110), holt der Server mit dem JWT eine neue (`app_login` mit `Authorization: Bearer <jwt>`, ohne Passwort). Ist auch der JWT abgelaufen, wird die gespeicherte Anmeldung gelöscht und ein neuer Login verlangt. Alte Dateien mit Passwort werden beim nächsten Login auf JWT umgestellt. Löschen: `easybasar_logout` mit `forget: true`.
 
 Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 

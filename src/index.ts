@@ -4,7 +4,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { ApiGeneralRequest, EasybasarError } from "./client.js";
+import { ApiGeneralRequest, EasybasarError, SessionExpired, jwtPayload } from "./client.js";
 import { render } from "./format.js";
 import { BasarState, summarize } from "./basar.js";
 import {
@@ -31,10 +31,10 @@ const installDir = path.resolve(path.dirname(new URL(import.meta.url).pathname),
 const loginHint = `Im Terminal einloggen: bash "${path.join(installDir, "login.sh")}"`;
 
 const api = new ApiGeneralRequest();
-const basare = new BasarState(api, () => api.relogin());
+const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.6.1" });
+const server = new McpServer({ name: "easybasar", version: "0.7.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -57,11 +57,8 @@ const dataSchema = z
   .describe("Formular-Parameter (POST-Body bzw. Query bei GET)");
 
 class NeedsLogin extends Error {
-  constructor() {
-    super(
-      "Nicht eingeloggt und keine gespeicherten Zugangsdaten. " +
-        "Am besten: " + loginHint + " (Passwort geht dann nicht durch den Chat).",
-    );
+  constructor(reason = "Nicht eingeloggt und keine gespeicherte Anmeldung.") {
+    super(`${reason} Am besten: ${loginHint} (Passwort geht dann nicht durch den Chat).`);
   }
 }
 
@@ -82,7 +79,7 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
         password: { type: "string", title: "Passwort" },
         remember: {
           type: "boolean",
-          title: "Zugangsdaten auf diesem Rechner speichern",
+          title: "Angemeldet bleiben (speichert nur ein Login-Token, nicht das Passwort)",
           default: false,
         },
       },
@@ -95,7 +92,18 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
   return { user: normalizeEmail(user), password, remember: remember === true };
 }
 
-/** Reihenfolge: übergebene Daten → gespeicherte Daten → Umgebungsvariablen → Dialog. */
+/** Ob der JWT dauerhaft gespeichert werden soll (Nutzer hat „angemeldet bleiben“ gewählt). */
+let persistJwt = false;
+api.onJwt = async (user, jwt) => {
+  if (persistJwt) await saveCredentials(user, jwt);
+};
+
+const statusOf = (source: string) => ({ user: api.currentUser ?? "", source, saved: persistJwt });
+
+/**
+ * Reihenfolge: übergebene Daten → gespeicherter JWT (neue Session ohne Passwort) →
+ * Umgebungsvariablen → Dialog. Gespeichert wird nur der JWT, nie das Passwort.
+ */
 async function doLogin(opts: {
   user?: string;
   password?: string;
@@ -106,16 +114,36 @@ async function doLogin(opts: {
   let creds: Credentials | null = null;
   let remember = opts.remember ?? false;
   let source = "";
+  let expired = false;
+
   if (opts.user && opts.password) {
     creds = { user: normalizeEmail(opts.user), password: opts.password };
     source = "eingegeben";
-  } else if ((creds = await loadCredentials())) {
-    source = "gespeichert";
-    remember = false;
-  } else if (process.env.EASYBASAR_USER && process.env.EASYBASAR_PASSWORD) {
+  } else {
+    const saved = await loadCredentials();
+    if (saved?.jwt) {
+      persistJwt = true;
+      if (await api.renew(saved.jwt, saved.user)) {
+        basare.reset();
+        return { response: null, status: statusOf("gespeichertes Login-Token") };
+      }
+      persistJwt = false;
+      expired = true;
+    }
+    if (saved?.password) {
+      // Altdatei mit Passwort: einmal damit einloggen, danach nur noch den JWT speichern.
+      creds = { user: saved.user, password: saved.password };
+      source = "gespeichert (alt)";
+      remember = true;
+    } else if (expired) {
+      await deleteCredentials();
+    }
+  }
+  if (!creds && process.env.EASYBASAR_USER && process.env.EASYBASAR_PASSWORD) {
     creds = { user: process.env.EASYBASAR_USER, password: process.env.EASYBASAR_PASSWORD };
     source = "Umgebungsvariablen";
-  } else if (opts.interactive !== false) {
+  }
+  if (!creds && opts.interactive !== false) {
     const asked = await askUser();
     if (asked) {
       creds = asked;
@@ -123,16 +151,35 @@ async function doLogin(opts: {
       source = "Dialog";
     }
   }
-  if (!creds) throw new NeedsLogin();
+  if (!creds) throw expired ? new NeedsLogin("Die gespeicherte Anmeldung ist abgelaufen.") : new NeedsLogin();
   if (source === "Dialog" && !creds.user.includes("@")) {
     throw new Error(
       "Die E-Mail-Adresse enthält kein @. Bitte (at) statt @ schreiben. " + loginHint,
     );
   }
+  persistJwt = remember;
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
   basare.reset();
-  if (remember) await saveCredentials(creds);
-  return { response, status: { user: creds.user, source, saved: remember } };
+  if (remember && !api.jwt) {
+    // Ohne JWT nichts speichern – vor allem nicht das Passwort.
+    persistJwt = false;
+    if (source === "gespeichert (alt)") await deleteCredentials();
+  }
+  return { response, status: statusOf(source) };
+}
+
+/** Neue Session per JWT; geht das nicht, ist ein neuer Login mit E-Mail/Passwort nötig. */
+async function renewSession() {
+  try {
+    await api.relogin();
+  } catch (r) {
+    if (r instanceof SessionExpired) {
+      if (persistJwt) await deleteCredentials();
+      persistJwt = false;
+      throw new NeedsLogin("Die Anmeldung ist abgelaufen.");
+    }
+    throw r;
+  }
 }
 
 /** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (z. B. Nr. 110) einmal neu. */
@@ -142,7 +189,8 @@ async function withSession<T>(fn: () => Promise<T>, autoLogin: boolean): Promise
     return await fn();
   } catch (e) {
     if (autoLogin && isSessionError(e)) {
-      await api.relogin();
+      // Session abgelaufen → mit dem JWT eine neue holen (kein Passwort nötig).
+      await renewSession();
       return fn();
     }
     throw e;
@@ -173,11 +221,24 @@ server.registerTool(
     try {
       const { response, status } = await doLogin(args);
       return text(
-        [render(response), `Eingeloggt als ${status.user}` + (status.saved ? " (Zugangsdaten gespeichert)" : "")]
-          .filter((t) => t !== "OK")
+        [
+          response ? render(response) : "",
+          `Eingeloggt als ${status.user}` + (status.saved ? " (angemeldet bleiben)" : ""),
+        ]
+          .filter((t) => t && t !== "OK")
           .join("\n\n"),
       );
     } catch (e) {
+      if (e instanceof EasybasarError && String(e.body.number) === "2211") {
+        // Bereits auf einem anderen Gerät angemeldet.
+        return fail(
+          new Error(
+            e.message +
+              "\n\n[Für Claude: Nutzer fragen, ob alle anderen Sitzungen abgemeldet werden sollen. " +
+              "Nur bei Ja easybasar_login erneut mit force_logout=true aufrufen.]",
+          ),
+        );
+      }
       return fail(e);
     }
   },
@@ -252,7 +313,12 @@ server.registerTool(
       user: api.currentUser,
       basar: basare.selected ? summarize(basare.selected) : null,
       sessionCookies: api.cookieNames,
-      savedCredentials: (await loadCredentials())?.user ?? null,
+      angemeldetBleiben: persistJwt,
+      loginTokenGueltigBis: (() => {
+        const exp = api.jwt ? jwtPayload(api.jwt)?.exp : undefined;
+        return typeof exp === "number" ? new Date(exp * 1000).toISOString() : null;
+      })(),
+      gespeichert: (await loadCredentials())?.user ?? null,
       credentialsFile,
       bases: BASES,
     }),
