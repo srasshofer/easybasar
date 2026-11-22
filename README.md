@@ -43,6 +43,8 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 - `easybasar_signup` – neues Konto über `app_signup`; `conditions` und `data_protection` müssen `true` sein (nur nach Zustimmung des Nutzers). Danach Aktivierungslink in der E-Mail klicken.
 - `easybasar_logout` – Session beenden, optional gespeicherte Zugangsdaten löschen
 - `easybasar_status` – Session-Status und letzte Login-Antwort
+- `easybasar_basare` – Basare laden (`basar_list.php`, `action=app`); genau ein Basar → automatisch ausgewählt
+- `easybasar_basar_waehlen` – Basar per `data.ID` auswählen (Voraussetzung für alle Artikel-Aktionen)
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)
 

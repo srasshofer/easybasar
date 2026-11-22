@@ -6,6 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError } from "./client.js";
 import { render } from "./format.js";
+import { BasarState, summarize } from "./basar.js";
 import { BASES, BaseName } from "./config.js";
 import {
   Credentials,
@@ -16,6 +17,7 @@ import {
 } from "./credentials.js";
 
 const api = new ApiGeneralRequest();
+const basare = new BasarState(api);
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
 const server = new McpServer({ name: "easybasar", version: "0.1.0" });
@@ -105,6 +107,7 @@ async function doLogin(opts: {
   }
   if (!creds) throw new NeedsLogin();
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
+  basare.reset();
   if (remember) await saveCredentials(creds);
   return { response, status: { user: creds.user, source, saved: remember } };
 }
@@ -167,6 +170,7 @@ server.registerTool(
   },
   async ({ forget }) => {
     api.logout();
+    basare.reset();
     return ok({ loggedIn: false, credentialsDeleted: forget ? await deleteCredentials() : false });
   },
 );
@@ -223,11 +227,62 @@ server.registerTool(
     ok({
       loggedIn: api.isLoggedIn,
       user: api.currentUser,
+      basar: basare.selected ? summarize(basare.selected) : null,
       sessionCookies: api.cookieNames,
       savedCredentials: (await loadCredentials())?.user ?? null,
       credentialsFile,
       bases: BASES,
     }),
+);
+
+server.registerTool(
+  "easybasar_basare",
+  {
+    title: "Meine Basare",
+    description:
+      "Listet die Basare des Verkäufers (basar_list.php, action=app). Gibt es genau einen, wird er " +
+      "automatisch ausgewählt. Bei mehreren muss der Nutzer wählen (easybasar_basar_waehlen). " +
+      "Ein gewählter Basar ist Voraussetzung für Artikel erfassen/bearbeiten/löschen und die Artikelliste.",
+    inputSchema: {},
+  },
+  async () => {
+    try {
+      const list = await withSession(() => basare.load(), true);
+      const sel = basare.selected;
+      return ok({
+        ausgewaehlt: sel ? summarize(sel) : null,
+        hinweis: sel
+          ? list.length === 1
+            ? "Einziger Basar – automatisch ausgewählt."
+            : "Bereits ausgewählt."
+          : list.length
+            ? "Mehrere Basare – bitte den Nutzer wählen lassen."
+            : "Kein Basar vorhanden.",
+        basare: list.map(summarize),
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "easybasar_basar_waehlen",
+  {
+    title: "Basar auswählen",
+    description:
+      "Wählt den Basar (id = data.ID aus easybasar_basare), für den Artikel-Aktionen gelten. " +
+      "Die Auswahl gilt, bis ein anderer Basar gewählt oder abgemeldet wird.",
+    inputSchema: { id: z.string().min(1).describe("data.ID des Basars") },
+  },
+  async ({ id }) => {
+    try {
+      const b = await withSession(() => basare.select(id), true);
+      return ok({ ausgewaehlt: summarize(b) });
+    } catch (e) {
+      return fail(e);
+    }
+  },
 );
 
 server.registerTool(
