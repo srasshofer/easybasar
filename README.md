@@ -12,16 +12,16 @@ claude   # im Repo starten; .mcp.json registriert den Server "easybasar"
 
 ## Login zur Laufzeit
 
-`easybasar_login` (Benutzer = E-Mail-Adresse) sucht Zugangsdaten in dieser Reihenfolge:
+`easybasar_login` (Benutzer = E-Mail-Adresse **oder Benutzername**) sucht Zugangsdaten in dieser Reihenfolge:
 
 1. direkt übergebene `user`/`password`
 2. gespeicherte Daten in `~/.config/easybasar-mcp/credentials.json` (bzw. `$EASYBASAR_CONFIG_DIR`)
 3. Umgebungsvariablen `EASYBASAR_USER` / `EASYBASAR_PASSWORD` (optional)
 4. Eingabedialog des MCP-Clients (Elicitation) mit Option „speichern“ – das Passwort läuft dabei nicht durch das Sprachmodell. Lässt sich dort kein `@` eingeben, `(at)` schreiben.
 
-Empfohlen: einmalig im Terminal `bash login.sh` im Installationsordner – fragt E-Mail und Passwort (verdeckt), prüft sie bei easybasar und speichert sie. `install.sh` bietet das am Ende an.
+Empfohlen: einmalig im Terminal `bash login.sh` im Installationsordner – fragt E-Mail-Adresse oder Benutzername und Passwort (verdeckt), prüft sie bei easybasar und speichert sie. `install.sh` bietet das am Ende an.
 
-Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true`, Häkchen im Dialog oder `login.sh`) – und zwar **nur E-Mail und JWT, nie das Passwort** (Datei mit Rechten 0600). Läuft die Session ab (Fehler 110), holt der Server mit dem JWT eine neue (`app_login` mit `Authorization: Bearer <jwt>`, ohne Passwort). Ist auch der JWT abgelaufen, wird die gespeicherte Anmeldung gelöscht und ein neuer Login verlangt. Alte Dateien mit Passwort werden beim nächsten Login auf JWT umgestellt. Löschen: `easybasar_logout` mit `forget: true`.
+Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true`, Häkchen im Dialog oder `login.sh`) – und zwar **nur Login-Name und JWT, nie das Passwort** (Datei mit Rechten 0600). Läuft die Session ab (Fehler 110), holt der Server mit dem JWT eine neue (`app_login` mit `Authorization: Bearer <jwt>`, ohne Passwort). Ist auch der JWT abgelaufen, wird die gespeicherte Anmeldung gelöscht und ein neuer Login verlangt. Alte Dateien mit Passwort werden beim nächsten Login auf JWT umgestellt. Löschen: `easybasar_logout` mit `forget: true`.
 
 Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 
@@ -41,7 +41,7 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 
 ## Tools
 
-- `easybasar_login` – `app_login` mit `user` (E-Mail), `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
+- `easybasar_login` – `app_login` mit `user` (E-Mail oder Benutzername), `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
 - `easybasar_signup` – neues Konto über `app_signup`; `conditions` und `data_protection` müssen `true` sein (nur nach Zustimmung des Nutzers). Danach Aktivierungslink in der E-Mail klicken.
 - `easybasar_logout` – Session beenden, optional gespeicherte Zugangsdaten löschen
 - `easybasar_status` – Session-Status und letzte Login-Antwort

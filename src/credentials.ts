@@ -35,7 +35,7 @@ export async function loadCredentials(): Promise<Saved | null> {
   }
 }
 
-/** Speichert E-Mail und JWT (nie das Passwort). */
+/** Speichert Login-Name (E-Mail oder Benutzername) und JWT (nie das Passwort). */
 export async function saveCredentials(user: string, jwt: string): Promise<void> {
   await mkdir(path.dirname(credentialsFile), { recursive: true, mode: 0o700 });
   await writeFile(credentialsFile, JSON.stringify({ user, jwt }), { mode: 0o600 });
@@ -51,9 +51,12 @@ export async function deleteCredentials(): Promise<boolean> {
   }
 }
 
-/** Ersatzschreibweisen für @ zulassen: "name(at)web.de", "name [at] web.de", "name#web.de". */
-export function normalizeEmail(s: string): string {
+/**
+ * Login-Name aufbereiten: E-Mail-Adresse oder Benutzername. Nur die eindeutigen Ersatzschreibweisen
+ * "(at)", "[at]", "{at}" werden zu "@" (für Eingabefelder, die kein @ annehmen); Benutzernamen bleiben unverändert.
+ */
+export function normalizeLogin(s: string): string {
   const t = s.trim();
   if (t.includes("@")) return t;
-  return t.replace(/\s*[([{]\s*at\s*[)\]}]\s*|\s+at\s+|#/i, "@");
+  return t.replace(/\s*[([{]\s*at\s*[)\]}]\s*/i, "@");
 }

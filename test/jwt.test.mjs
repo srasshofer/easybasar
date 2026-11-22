@@ -126,4 +126,13 @@ test("Altdatei mit Passwort wird beim Login auf JWT umgestellt", async () => {
   await client.close();
 });
 
+test("Login mit Benutzername statt E-Mail", async () => {
+  const { client, call } = await start();
+  const before = st.log.length;
+  const r = await call("easybasar_login", { user: "max_2026", password: "pw" });
+  assert.equal(r.err, false, r.text);
+  assert.equal(st.log.slice(before).find((l) => l.ep === "app_login").data.user, "max_2026");
+  await client.close();
+});
+
 test.after(() => srv.close());

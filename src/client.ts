@@ -30,7 +30,7 @@ export class EasybasarError extends Error {
   }
 }
 
-/** Session abgelaufen und JWT ungültig/abgelaufen → neuer Login mit E-Mail/Passwort nötig. */
+/** Session abgelaufen und JWT ungültig/abgelaufen → neuer Login nötig. */
 export class SessionExpired extends Error {
   constructor() {
     super("Die Anmeldung ist abgelaufen. Bitte neu einloggen.");
@@ -186,7 +186,7 @@ export class ApiGeneralRequest {
     }
   }
 
-  /** Login mit E-Mail/Passwort. Das Passwort wird nur für diesen Aufruf verwendet, nicht behalten. */
+  /** Login mit E-Mail-Adresse oder Benutzername und Passwort. Das Passwort wird nur für diesen Aufruf verwendet, nicht behalten. */
   async login(user: string, password: string, forceLogout = false) {
     const postData: Data = { user, password, ...this.baseLoginData() };
     if (forceLogout) postData.force_logout = "true";

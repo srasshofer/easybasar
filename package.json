@@ -1,6 +1,6 @@
 {
   "name": "easybasar-mcp",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "MCP-Server f\u00fcr easybasar.de (Verk\u00e4ufer)",
   "type": "module",
   "bin": {

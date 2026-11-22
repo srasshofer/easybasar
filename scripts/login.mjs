@@ -1,4 +1,4 @@
-// Login im Terminal: fragt E-Mail und Passwort ab, prüft sie bei easybasar und speichert sie
+// Login im Terminal: fragt E-Mail-Adresse oder Benutzername und Passwort ab, prüft sie bei easybasar und speichert sie
 // das Login-Token (JWT) für den MCP-Server (~/.config/easybasar-mcp/credentials.json).
 // Das Passwort geht nicht durch Claude und wird nicht gespeichert.
 import readline from "node:readline";
@@ -19,7 +19,7 @@ function ask(question, hidden = false) {
   });
 }
 
-const user = await ask("easybasar E-Mail-Adresse: ");
+const user = await ask("easybasar E-Mail-Adresse oder Benutzername: ");
 const password = await ask("Passwort: ", true);
 if (!user || !password) { console.error("Abgebrochen."); process.exit(1); }
 const api = new ApiGeneralRequest();

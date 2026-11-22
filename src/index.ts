@@ -25,7 +25,7 @@ import {
   credentialsFile,
   deleteCredentials,
   loadCredentials,
-  normalizeEmail,
+  normalizeLogin,
   saveCredentials,
 } from "./credentials.js";
 
@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.0" });
+const server = new McpServer({ name: "easybasar", version: "0.10.1" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -64,7 +64,7 @@ class NeedsLogin extends Error {
   }
 }
 
-/** Fragt E-Mail/Passwort über einen Dialog des MCP-Clients ab (Elicitation), falls unterstützt. */
+/** Fragt Login-Name/Passwort über einen Dialog des MCP-Clients ab (Elicitation), falls unterstützt. */
 async function askUser(): Promise<(Credentials & { remember: boolean }) | null> {
   if (!server.server.getClientCapabilities()?.elicitation) return null;
   const r = await server.server.elicitInput({
@@ -75,8 +75,8 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
       properties: {
         user: {
           type: "string",
-          title: "E-Mail-Adresse",
-          description: "Falls @ nicht eingegeben werden kann: (at) oder # statt @ schreiben",
+          title: "E-Mail-Adresse oder Benutzername",
+          description: "Falls @ nicht eingegeben werden kann: Benutzername verwenden oder (at) statt @ schreiben",
         },
         password: { type: "string", title: "Passwort" },
         remember: {
@@ -91,7 +91,7 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
   if (r.action !== "accept" || !r.content) return null;
   const { user, password, remember } = r.content as Record<string, unknown>;
   if (typeof user !== "string" || typeof password !== "string") return null;
-  return { user: normalizeEmail(user), password, remember: remember === true };
+  return { user: normalizeLogin(user), password, remember: remember === true };
 }
 
 /** Ob der JWT dauerhaft gespeichert werden soll (Nutzer hat „angemeldet bleiben“ gewählt). */
@@ -119,7 +119,7 @@ async function doLogin(opts: {
   let expired = false;
 
   if (opts.user && opts.password) {
-    creds = { user: normalizeEmail(opts.user), password: opts.password };
+    creds = { user: normalizeLogin(opts.user), password: opts.password };
     source = "eingegeben";
   } else {
     const saved = await loadCredentials();
@@ -154,11 +154,6 @@ async function doLogin(opts: {
     }
   }
   if (!creds) throw expired ? new NeedsLogin("Die gespeicherte Anmeldung ist abgelaufen.") : new NeedsLogin();
-  if (source === "Dialog" && !creds.user.includes("@")) {
-    throw new Error(
-      "Die E-Mail-Adresse enthält kein @. Bitte (at) statt @ schreiben. " + loginHint,
-    );
-  }
   persistJwt = remember;
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
   basare.reset();
@@ -170,7 +165,7 @@ async function doLogin(opts: {
   return { response, status: statusOf(source) };
 }
 
-/** Neue Session per JWT; geht das nicht, ist ein neuer Login mit E-Mail/Passwort nötig. */
+/** Neue Session per JWT; geht das nicht, ist ein neuer Login mit E-Mail bzw. Benutzername und Passwort nötig. */
 async function renewSession() {
   try {
     await api.relogin();
@@ -206,11 +201,11 @@ server.registerTool(
     description:
       "Meldet den Verkäufer per app_login an. Ohne user/password werden zuerst gespeicherte " +
       "Zugangsdaten genutzt, sonst wird der Nutzer per Dialog gefragt (Passwort geht dann nicht " +
-      "durch den Chat). Nur wenn das scheitert, E-Mail-Adresse/Passwort im Chat erfragen und übergeben. " +
+      "durch den Chat). Nur wenn das scheitert, E-Mail-Adresse oder Benutzername und Passwort im Chat erfragen und übergeben. " +
       "remember=true speichert die Zugangsdaten lokal (nur mit Zustimmung des Nutzers). " +
       "force_logout=true beendet eine bestehende Sitzung auf einem anderen Gerät.",
     inputSchema: {
-      user: z.string().optional().describe("E-Mail-Adresse des Kontos (= API-Feld user)"),
+      user: z.string().optional().describe("E-Mail-Adresse oder Benutzername (= API-Feld user)"),
       password: z.string().optional(),
       remember: z
         .boolean()
