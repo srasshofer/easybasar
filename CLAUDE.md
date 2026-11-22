@@ -29,6 +29,17 @@ Danach: Claude Code neu starten, `/easybasar` eingeben.
 
 ## Offene Punkte (vom Nutzer vertagt)
 
-- **JWT:** `app_login` liefert einen JWT, der länger gilt als die Session. Ziel: JWT statt Passwort speichern und damit neue Sessions erzeugen. Noch unbekannt: Feldname in der Login-Antwort, Aufruf zum Erneuern der Session, Fehlerantwort bei abgelaufenem JWT. Nicht raten – beim Nutzer erfragen.
+- **JWT** (Ablauf aus `session.dart` der App bekannt, Umsetzung vertagt):
+  - Login-Erfolg: Antwort hat `info`; JWT in `info.message.jwt`, Session-Instanz in `info.message.instance`.
+  - JWT-Payload: `iss`, `aud`, `iat`, `exp` (Sekunden), `data.{id, user_id, first_name, last_name, email}`.
+  - Session erneuern ohne Passwort: `POST app_login` mit nur `o`, `v`, `c`, `l` und Header `Authorization: Bearer <jwt>`.
+    Erfolg = `info.number == 2205`; ggf. neuer JWT in `info.message.jwt` (dann ersetzen) und neue `info.message.instance`.
+    Alternativ-Format: `response.data.instance`. Antwort mit `error` → JWT ungültig → neuer Login mit E-Mail/Passwort.
+  - Vorher lokal `exp` prüfen; abgelaufen → gar nicht erst versuchen.
+  - Auslöser: Fehler 110 (Session abgelaufen) → erneuern; scheitert das → abmelden und Login verlangen.
+  - Fehler 2211 beim Login → woanders eingeloggt; Nutzer fragen, ob mit `force_logout=true` alle anderen abgemeldet werden sollen.
+  - Vor jedem Login Cookies und JWT verwerfen.
+  - Ziel: nur JWT speichern (nicht das Passwort).
+  - Offen: ob die Session-Instanz (`instance`) bei normalen Aufrufen mitgesendet werden muss; Endpunkt/Parameter für Logout (`app_logout`?).
 - **Rabatt:** Parameter für `item_tool.php` unbekannt; Erfassen mit Rabatt > 0 bricht bewusst ab.
 - **Artikel bearbeiten / löschen (`itemremove`) / Meine Artikelliste:** Endpunkte fehlen.
