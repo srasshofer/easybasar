@@ -50,6 +50,8 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 - `easybasar_artikel_formular` – Erfassungsformular des gewählten Basars (`basar_visible.php`, `update=reset_form`, `privileg=seller`): Felder aus `item_description_fields`, Preis-Range, Rabatt, `item_actual_count`/`item_max_count`
 - `easybasar_artikel_pruefen` – prüft Felder (Pflicht, `maxlength`), Preis (`item_price_min` ≤ Preis ≤ `item_price_max`, Vielfaches von `item_price_div`, in Cent gerechnet), Rabatt (nur wenn `discount_enabled`, nur Werte aus `discount_steps`, vom Nutzer gewählt) und das Artikel-Limit
 - `easybasar_artikel_erfassen` – lädt Formular, prüft und sendet an `item_tool.php`: `price` (z. B. `2.50`), `right=seller`, `big_item=false`, `item_count=1` und je Feld aus `item_description_fields` ein Parameter mit dessen Namen (z. B. `Größe`, `Farbe`, `Beschreibung`). Gibt Meldung und Artikelnummer (`info.additional`) zurück.
+- `easybasar_artikel_bearbeiten` – `item_tool.php` mit `price`, `right=seller`, `big_item=false`, `action=edit`, `NumberEdit=<Artikelnummer>`, den nicht-leeren Beschreibungsfeldern und ggf. `discount`
+- `easybasar_artikel_loeschen` – `api/php/api_sel_actions.php` (Basis `php`, wie `requestExtended` der App) mit `action=itemDeleteFinal` und `iid[]` (mehrfach möglich)
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)
 

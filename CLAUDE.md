@@ -24,11 +24,13 @@ Danach: Claude Code neu starten, `/easybasar` eingeben.
 ## API
 
 - Basis immer Instanz `a`: `https://www.easybasar.de/app/v0.8/a/includes/<endpoint>.php`
+- `ApiGeneralRequest().request` → Basis `includes`; `ApiGeneralRequest().requestExtended` → Basis `php` (`…/includes/api/php/`).
 - Nutzer sieht von Servermeldungen nur `msg` und `solution` (keine Nummern).
 - Endpunkte nie erfinden – nur die vom Nutzer genannten verwenden.
 
 ## Offene Punkte (vom Nutzer vertagt)
 
 - **JWT** ist umgesetzt (0.7.0): Login übernimmt `info.message.jwt`; Session-Erneuerung per `app_login` mit `o/v/c/l` + `Authorization: Bearer <jwt>` (Erfolg `info.number == 2205`, neuer JWT ersetzt den alten). Gespeichert wird nur `{user, jwt}`, nie das Passwort. Fehler 2211 → Nutzer fragen, dann `force_logout=true`. Logout-Endpunkt wird nicht gebraucht.
-- **Rabatt:** Parameter für `item_tool.php` unbekannt; Erfassen mit Rabatt > 0 bricht bewusst ab.
-- **Artikel bearbeiten / löschen (`itemremove`) / Meine Artikelliste:** Endpunkte fehlen.
+- **Rabatt:** Beim Bearbeiten Parameter `discount` (bekannt). Beim Erfassen noch nicht bestätigt, ob ebenfalls `discount` – bis dahin bricht Erfassen mit Rabatt > 0 ab.
+- **Löschen:** `iid[]` – unklar, ob Artikelnummer (Barcode) oder interne ID; klärt sich mit der Artikelliste.
+- **Meine Artikelliste:** Endpunkt fehlt.

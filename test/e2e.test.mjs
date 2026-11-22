@@ -16,8 +16,12 @@ const srv = http.createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", () => {
-    const ep = path.basename(new URL(req.url, "http://x").pathname, ".php");
-    const data = Object.fromEntries(new URLSearchParams(body));
+    const pathname = new URL(req.url, "http://x").pathname;
+    const ep = path.basename(pathname, ".php");
+    const sp = new URLSearchParams(body);
+    const data = Object.fromEntries(sp);
+    if (sp.getAll("iid[]").length > 1) data["iid[]"] = sp.getAll("iid[]");
+    data.__path = pathname.includes("/includes/api/php/") ? "php" : "includes";
     posts.push({ ep, data });
     const json = (o, h = {}) => { res.writeHead(200, { "Content-Type": "application/json", ...h }); res.end(JSON.stringify(o)); };
     const authed = (req.headers.cookie ?? "").includes("PHPSESSID=s1");
@@ -31,6 +35,12 @@ const srv = http.createServer((req, res) => {
     }
     if (!selected) return json({ error: { response: "visible", number: 500, msg: "Kein Basar gewählt.", solution: "" } });
     if (ep === "basar_visible") return json({ info: { ...form, form: { ...form.form, basar_id: selected } } });
+    if (ep === "api_sel_actions") {
+      if (data.__path !== "php") return res.writeHead(404).end();
+      const n = [].concat(data["iid[]"]).length;
+      return json({ info: { response: "itemremove", number: 707, msg: `Artikel wurde gelöscht ${n}`, solution: "", additional: n, message: {} } });
+    }
+    if (ep === "item_tool" && data.action === "edit") return json({ info: { response: "item_tool", number: 265, msg: `Artikel wurde geändert ${data.NumberEdit}`, solution: "", additional: data.NumberEdit, message: {} } });
     if (ep === "item_tool") return json({ info: { response: "item_tool", number: 264, msg: "Artikel wurde erfasst 4110000167149", solution: "", additional: "4110000167149", message: {} } });
     res.writeHead(404).end();
   });
@@ -55,7 +65,7 @@ test("mehrere Basare: erst Auswahl, dann beim Server setzen", async () => {
   assert.match(r.text, /Bitte zuerst einen Basar auswählen/);
   const w = await call("easybasar_basar_waehlen", { id: "000000AAAAA" });
   assert.equal(w.err, false, w.text);
-  assert.deepEqual(posts.find((p) => p.ep === "select_basar_seller_chiffre").data, { basar_id: "000000AAAAA", privileg: "seller", mod_seller: "true" });
+  assert.deepEqual(posts.find((p) => p.ep === "select_basar_seller_chiffre").data, { basar_id: "000000AAAAA", privileg: "seller", mod_seller: "true", __path: "includes" });
   assert.equal(selected, "000000AAAAA");
 });
 
@@ -74,12 +84,36 @@ test("Artikel erfassen: Login → Basar → Formular → item_tool", async () =>
   assert.match(r.text, /"artikelnummer": "4110000167149"/);
   assert.match(r.text, /"freiePlaetze": 6/);
 
-  const sent = posts.find((p) => p.ep === "item_tool").data;
+  const { __path, ...sent } = posts.find((p) => p.ep === "item_tool").data;
   assert.deepEqual(sent, { price: "2.50", right: "seller", big_item: "false", item_count: "1", "Größe": "104", Farbe: "blau", Beschreibung: "Regenjacke" });
-  assert.deepEqual(posts.find((p) => p.ep === "basar_visible").data, { update: "reset_form", privileg: "seller" });
-  assert.deepEqual(posts.find((p) => p.ep === "basar_list").data, { action: "app" });
+  assert.deepEqual(posts.find((p) => p.ep === "basar_visible").data, { update: "reset_form", privileg: "seller", __path: "includes" });
+  assert.deepEqual(posts.find((p) => p.ep === "basar_list").data, { action: "app", __path: "includes" });
   const i = posts.findIndex((p) => p.ep === "item_tool");
   assert.equal(posts[i - 1].ep, "select_basar_seller_chiffre", "Basar direkt vor item_tool gesetzt");
+});
+
+test("Artikel bearbeiten: action=edit, NumberEdit, nur nicht-leere Felder, Rabatt als discount", async () => {
+  const r = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", felder: { Farbe: "rot" }, preis: 3, bestaetigt: true });
+  assert.equal(r.err, false, r.text);
+  assert.match(r.text, /^Artikel wurde geändert 4110000167149/);
+  const { __path, ...sent } = posts.filter((p) => p.ep === "item_tool").at(-1).data;
+  assert.deepEqual(sent, { price: "3.00", right: "seller", big_item: "false", action: "edit", NumberEdit: "4110000167149", Farbe: "rot" });
+  const bad = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", preis: 3.2, bestaetigt: true });
+  assert.equal(bad.err, true);
+  assert.match(bad.text, /Schritten/);
+});
+
+test("Artikel löschen: api/php/api_sel_actions, itemDeleteFinal, iid[] (mehrere)", async () => {
+  const r = await call("easybasar_artikel_loeschen", { artikel_ids: ["11", "12"], bestaetigt: true });
+  assert.equal(r.err, false, r.text);
+  assert.match(r.text, /^Artikel wurde gelöscht 2/);
+  assert.doesNotMatch(r.text, /707/);
+  const d = posts.filter((p) => p.ep === "api_sel_actions").at(-1).data;
+  assert.equal(d.__path, "php");
+  assert.equal(d.action, "itemDeleteFinal");
+  assert.deepEqual(d["iid[]"], ["11", "12"]);
+  const no = await call("easybasar_artikel_loeschen", { artikel_ids: ["11"] });
+  assert.equal(no.err, true, "ohne Bestätigung kein Löschen");
 });
 
 test("ohne Bestätigung kein Erfassen", async () => {

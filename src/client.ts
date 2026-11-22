@@ -56,7 +56,7 @@ export function jwtExpired(jwt: string, now = Date.now()): boolean {
 }
 
 export type Method = "GET" | "POST";
-export type Data = Record<string, string | number | boolean>;
+export type Data = Record<string, string | number | boolean | string[]>;
 
 /**
  * Nachbau von ApiGeneralRequest().request(endpoint, method, data, headers)
@@ -116,8 +116,11 @@ export class ApiGeneralRequest {
     base: BaseName,
   ): Promise<Response> {
     let url = ApiGeneralRequest.url(endpoint, base);
+    // Arrays (z. B. "iid[]") als wiederholte Parameter senden.
     const params = new URLSearchParams(
-      Object.entries(data).map(([k, v]) => [k, String(v)]),
+      Object.entries(data).flatMap(([k, v]) =>
+        Array.isArray(v) ? v.map((x) => [k, String(x)]) : [[k, String(v)]],
+      ),
     );
     const init: RequestInit = {
       method,

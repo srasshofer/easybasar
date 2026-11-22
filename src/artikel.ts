@@ -122,7 +122,11 @@ export interface CheckResult {
 }
 
 /** Prüft einen Artikel gegen das Formular des Basars (Felder, Preis-Range/-Raster, Rabatt, Limit). */
-export function checkItem(f: FormInfo, input: ItemInput, isNew = true): CheckResult {
+/**
+ * partial = Bearbeiten: nur angegebene Felder werden geprüft und gesendet (leere bleiben unverändert),
+ * Pflichtfelder und Rabatt werden nicht erzwungen.
+ */
+export function checkItem(f: FormInfo, input: ItemInput, isNew = true, partial = false): CheckResult {
   const { form, item } = f;
   const fehler: string[] = [];
   const warnungen: string[] = [];
@@ -142,6 +146,7 @@ export function checkItem(f: FormInfo, input: ItemInput, isNew = true): CheckRes
   for (const fd of form.item_description_fields) {
     const entry = Object.entries(input.felder).find(([k]) => k.toLowerCase() === fd.name.toLowerCase());
     const v = (entry?.[1] ?? "").toString().trim();
+    if (!v && partial) continue;
     if (!v) {
       if (Number(fd.required)) fehler.push(`„${fd.name}“ ist ein Pflichtfeld.`);
       else warnungen.push(`„${fd.name}“ ist leer${fd.comment ? ` (${fd.comment})` : ""}.`);
@@ -191,7 +196,7 @@ export function checkItem(f: FormInfo, input: ItemInput, isNew = true): CheckRes
   if (d?.discount_enabled) {
     const steps = d.discount_steps ?? [];
     if (input.rabatt === undefined) {
-      fehler.push(
+      if (!partial) fehler.push(
         `Dieser Basar bietet Rabatt an${d.discount_begin ? ` (ab ${d.discount_begin})` : ""}. ` +
           `Bitte den Nutzer eine Stufe wählen lassen: ${steps.join(", ")}.`,
       );
@@ -224,6 +229,23 @@ export function itemToolData(normalized: NonNullable<CheckResult["normalisiert"]
     item_count: "1",
     ...normalized.felder,
   };
+}
+
+/** POST-Daten zum Bearbeiten (item_tool.php, action=edit, NumberEdit). Nur nicht-leere Felder. */
+export function itemEditData(
+  normalized: NonNullable<CheckResult["normalisiert"]>,
+  itemNumber: string,
+): Record<string, string> {
+  const d: Record<string, string> = {
+    price: normalized.preis,
+    right: "seller",
+    big_item: "false",
+    action: "edit",
+    NumberEdit: itemNumber,
+  };
+  for (const [k, v] of Object.entries(normalized.felder)) if (v) d[k] = v;
+  if (normalized.rabatt !== undefined) d.discount = String(normalized.rabatt);
+  return d;
 }
 
 /** Artikelnummer aus der Antwort von item_tool.php (info.additional). */

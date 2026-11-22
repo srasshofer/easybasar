@@ -12,6 +12,7 @@ import {
   checkItem,
   describeForm,
   isSessionError,
+  itemEditData,
   itemNumber,
   itemToolData,
   limitReached,
@@ -34,7 +35,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.7.0" });
+const server = new McpServer({ name: "easybasar", version: "0.8.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -493,6 +494,82 @@ server.registerTool(
             null,
             2,
           ),
+        ].join("\n\n"),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "easybasar_artikel_bearbeiten",
+  {
+    title: "Artikel bearbeiten",
+    description:
+      "Ändert einen bestehenden Artikel im gewählten Basar (item_tool.php, action=edit, NumberEdit). " +
+      "Preis ist Pflicht und wird wie beim Erfassen geprüft; von den Feldern werden nur angegebene, " +
+      "nicht-leere gesendet. Rabatt nur, wenn der Basar ihn anbietet und der Nutzer ihn gewählt hat. " +
+      "Nur nach Bestätigung des Nutzers (bestaetigt=true).",
+    inputSchema: {
+      artikelnummer: z.string().min(1).describe("Artikelnummer (Barcode), z. B. 4110000167149"),
+      ...itemSchema,
+      felder: itemSchema.felder.default({}),
+      bestaetigt: z.literal(true).describe("Nutzer hat die Änderung bestätigt"),
+    },
+  },
+  async ({ artikelnummer, felder, preis, rabatt }) => {
+    try {
+      const { basar, f } = await formForSelectedBasar();
+      const r = checkItem(f, { felder, preis, rabatt }, false, true);
+      if (!r.ok) return { isError: true, ...ok({ basar: basar.Basar, ...r }) };
+      const res = await withSession(async () => {
+        await basare.activate(basar);
+        return api.request("item_tool", "POST", itemEditData(r.normalisiert!, artikelnummer.trim()));
+      }, true);
+      return text(
+        [render(res), JSON.stringify({ artikelnummer, basar: basar.Basar }, null, 2)].join("\n\n"),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "easybasar_artikel_loeschen",
+  {
+    title: "Artikel löschen",
+    description:
+      "Löscht Artikel endgültig (api/php/api_sel_actions.php, action=itemDeleteFinal, iid[]). " +
+      "Gelöschte Artikel können nicht mehr abgegeben werden – ihr Etikett muss vernichtet werden. " +
+      "Ein gelöschter Artikel gibt einen Platz im Artikel-Limit frei. " +
+      "Nur nach ausdrücklicher Bestätigung des Nutzers (bestaetigt=true).",
+    inputSchema: {
+      artikel_ids: z
+        .array(z.string().min(1))
+        .min(1)
+        .describe("ID(s) der zu löschenden Artikel (iid[])"),
+      bestaetigt: z.literal(true).describe("Nutzer hat das endgültige Löschen bestätigt"),
+    },
+  },
+  async ({ artikel_ids }) => {
+    try {
+      const basar = await withSession(() => basare.require(), true);
+      const res = await withSession(async () => {
+        await basare.activate(basar);
+        return api.request(
+          "api_sel_actions",
+          "POST",
+          { action: "itemDeleteFinal", "iid[]": artikel_ids.map((x) => x.trim()) },
+          { Accept: "application/json" },
+          "php",
+        );
+      }, true);
+      return text(
+        [
+          render(res),
+          JSON.stringify({ basar: basar.Basar, geloescht: artikel_ids, hinweis: "Etikett(en) vernichten." }, null, 2),
         ].join("\n\n"),
       );
     } catch (e) {
