@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.3" });
+const server = new McpServer({ name: "easybasar", version: "0.10.4" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 

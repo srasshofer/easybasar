@@ -1,0 +1,66 @@
+easybasar für Claude Code – Installation
+========================================
+
+Damit kannst du in Claude Code mit /easybasar als Verkäufer bei easybasar.de
+arbeiten: Basar wählen, Artikel erfassen, bearbeiten, löschen und deine
+Artikellisten (erfasst, abgegeben, verkauft, zurücksortiert) ansehen.
+
+
+Voraussetzungen
+---------------
+- macOS oder Linux (Windows wird derzeit nicht unterstützt)
+- Claude Code (https://claude.com/claude-code)
+- Node.js ab Version 20
+  macOS:  brew install node
+- Ein eigenes, aktiviertes easybasar-Konto (E-Mail-Adresse oder Benutzername)
+
+
+Installation
+------------
+1. Die ZIP-Datei in den Ordner "Downloads" speichern.
+
+2. Terminal öffnen und nacheinander ausführen
+   (VERSION durch die Versionsnummer im Dateinamen ersetzen, z. B. 0.10.4):
+
+   mkdir -p ~/easybasar-mcp && cd ~/easybasar-mcp
+
+   unzip -o ~/Downloads/easybasar-VERSION.zip
+
+   cd easybasar-VERSION && bash install.sh
+
+3. Am Ende fragt das Skript, ob du dich gleich anmelden willst:
+   Enter drücken, E-Mail-Adresse oder Benutzername und Passwort eingeben.
+   Gespeichert wird nur ein Login-Token, nicht dein Passwort.
+
+4. Claude Code komplett beenden und neu starten.
+
+5. In Claude Code eingeben:   /easybasar
+   Beispiele:
+     /easybasar meine Artikel anzeigen
+     /easybasar Skisocken HEAD gelb Gr. 42 für 3 Euro erfassen
+     /easybasar was wurde verkauft?
+
+
+Wichtig
+-------
+- Den Ordner ~/easybasar-mcp/easybasar-VERSION nach der Installation NICHT
+  löschen oder verschieben – Claude Code startet den Server von dort.
+- Update: neue ZIP genauso installieren (Schritt 2). Die neue Version ersetzt
+  die alte automatisch, deine Anmeldung bleibt erhalten. Alte Ordner kannst du
+  danach löschen.
+- Neu anmelden (z. B. anderes Konto oder Anmeldung abgelaufen):
+    bash ~/easybasar-mcp/easybasar-VERSION/login.sh
+- PDFs (z. B. Etiketten) landen in ~/Downloads/easybasar
+- Artikel löschen ist endgültig – Claude fragt vorher nach. Das Etikett eines
+  gelöschten Artikels muss vernichtet werden.
+
+
+Probleme
+--------
+- "Node.js fehlt" / "zu alt":   brew install node   bzw.   brew upgrade node
+- "Claude Code (claude) nicht gefunden": Claude Code installieren, Terminal neu öffnen.
+- /easybasar wird nicht angezeigt: Claude Code komplett beenden und neu starten.
+- Prüfen, ob der Server läuft:   claude mcp get easybasar
+  (sollte "Connected" anzeigen)
+- Im Anmeldefenster von Claude Code lässt sich kein @ eingeben:
+  Benutzername verwenden, (at) statt @ schreiben oder im Terminal login.sh nutzen.

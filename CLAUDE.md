@@ -19,6 +19,8 @@ cd easybasar-<version> && bash install.sh
 
 Danach: Claude Code neu starten, `/easybasar` eingeben.
 
+`ANLEITUNG.txt` (für Kollegen, ohne persönlichen Pfad) liegt in jeder ZIP – bei Änderungen an Installation oder Funktionen mitpflegen.
+
 `install.sh` registriert den MCP-Server benutzerweit (`claude mcp add -s user`, ersetzt ältere Versionen) und kopiert den Befehl nach `~/.claude/commands/easybasar.md`.
 
 ## API

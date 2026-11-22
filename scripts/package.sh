@@ -8,7 +8,7 @@ NAME="easybasar-$VERSION"
 STAGE="$(mktemp -d)/$NAME"
 mkdir -p "$STAGE/.claude/commands" "$STAGE/scripts" release
 cp -R dist "$STAGE/dist"
-cp package.json package-lock.json install.sh login.sh README.md "$STAGE/"
+cp package.json package-lock.json install.sh login.sh README.md ANLEITUNG.txt "$STAGE/"
 cp scripts/selftest.mjs scripts/login.mjs "$STAGE/scripts/"
 cp .claude/commands/easybasar.md "$STAGE/.claude/commands/"
 rm -f "release/$NAME.zip"
