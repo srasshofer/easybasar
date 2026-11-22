@@ -27,3 +27,11 @@ test("kein Basar: Hinweis auf Nummernvergabe", async () => {
   const s = new BasarState(fakeApi([]));
   await assert.rejects(s.require(), /basar-anmeldung/);
 });
+
+test("leere Liste (Session abgelaufen): einmal neu einloggen und erneut laden", async () => {
+  let n = 0, relogins = 0;
+  const api = { request: async () => ({ data: n++ === 0 ? [] : [b1] }) };
+  const s = new BasarState(api, async () => relogins++);
+  assert.equal((await s.require()).ID, b1.ID);
+  assert.equal(relogins, 1);
+});

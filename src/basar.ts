@@ -54,7 +54,12 @@ export class BasarState {
   private list: Basar[] | null = null;
   private selectedId: string | null = null;
 
-  constructor(private readonly api: ApiGeneralRequest) {}
+  /** onEmpty: wird bei leerer Liste einmal aufgerufen (z. B. Re-Login), danach erneut geladen –
+   *  basar_list.php liefert ohne gültige Session kein Fehler, sondern eine leere Liste. */
+  constructor(
+    private readonly api: ApiGeneralRequest,
+    private readonly onEmpty?: () => Promise<unknown>,
+  ) {}
 
   get selected(): Basar | null {
     return this.list?.find((b) => b.ID === this.selectedId) ?? null;
@@ -67,10 +72,17 @@ export class BasarState {
 
   /** Lädt basar_list.php (action=app). Bei genau einem Basar wird dieser sofort ausgewählt. */
   async load(): Promise<Basar[]> {
-    const res = (await this.api.request("basar_list", "POST", { action: "app" })) as {
-      data?: Basar[];
+    const fetchList = async () => {
+      const res = (await this.api.request("basar_list", "POST", { action: "app" })) as {
+        data?: Basar[];
+      };
+      return Array.isArray(res?.data) ? res.data : [];
     };
-    this.list = Array.isArray(res?.data) ? res.data : [];
+    this.list = await fetchList();
+    if (!this.list.length && this.onEmpty) {
+      await this.onEmpty();
+      this.list = await fetchList();
+    }
     if (this.selectedId && !this.list.some((b) => b.ID === this.selectedId)) {
       this.selectedId = null;
     }

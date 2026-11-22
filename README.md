@@ -35,7 +35,7 @@ Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 
 Endpunkte werden als `<basis>/<endpoint>.php` aufgerufen, Parameter als `application/x-www-form-urlencoded`.
 
-Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufruf mitgeschickt (auch über Redirects), vom Server gelöschte Cookies werden entfernt, und jeder (Re-)Login startet mit leerer Cookie-Liste. Setzt der Login kein Cookie, gilt er als fehlgeschlagen. Antwortet ein Endpunkt mit `error.response = "login"`, wird einmal automatisch neu eingeloggt. Test: `npm test`.
+Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufruf mitgeschickt (auch über Redirects), vom Server gelöschte Cookies werden entfernt, und jeder (Re-)Login startet mit leerer Cookie-Liste. Setzt der Login kein Cookie, gilt er als fehlgeschlagen. Bei Session-Fehlern (`error.response = "login"` oder Nr. 110 „keine gültige Session“) wird einmal automatisch neu eingeloggt. Da `basar_list.php` ohne Session eine leere Liste statt eines Fehlers liefert, wird bei leerer Liste ebenfalls einmal neu eingeloggt. Test: `npm test`.
 
 ## Tools
 
@@ -45,6 +45,8 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 - `easybasar_status` – Session-Status und letzte Login-Antwort
 - `easybasar_basare` – Basare laden (`basar_list.php`, `action=app`); genau ein Basar → automatisch ausgewählt
 - `easybasar_basar_waehlen` – Basar per `data.ID` auswählen (Voraussetzung für alle Artikel-Aktionen)
+- `easybasar_artikel_formular` – Erfassungsformular des gewählten Basars (`basar_visible.php`, `update=reset_form`, `privileg=seller`): Felder aus `item_description_fields`, Preis-Range, Rabatt, `item_actual_count`/`item_max_count`
+- `easybasar_artikel_pruefen` – prüft Felder (Pflicht, `maxlength`), Preis (`item_price_min` ≤ Preis ≤ `item_price_max`, Vielfaches von `item_price_div`, in Cent gerechnet), Rabatt (nur wenn `discount_enabled`, nur Werte aus `discount_steps`, vom Nutzer gewählt) und das Artikel-Limit
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)
 

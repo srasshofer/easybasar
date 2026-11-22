@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError } from "./client.js";
 import { render } from "./format.js";
 import { BasarState, summarize } from "./basar.js";
+import { LIMIT_TEXT, checkItem, describeForm, isSessionError, limitReached, loadForm } from "./artikel.js";
 import { BASES, BaseName } from "./config.js";
 import {
   Credentials,
@@ -17,7 +18,7 @@ import {
 } from "./credentials.js";
 
 const api = new ApiGeneralRequest();
-const basare = new BasarState(api);
+const basare = new BasarState(api, () => api.relogin());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
 const server = new McpServer({ name: "easybasar", version: "0.1.0" });
@@ -112,13 +113,13 @@ async function doLogin(opts: {
   return { response, status: { user: creds.user, source, saved: remember } };
 }
 
-/** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (response = "login") einmal neu. */
+/** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (z. B. Nr. 110) einmal neu. */
 async function withSession<T>(fn: () => Promise<T>, autoLogin: boolean): Promise<T> {
   if (autoLogin && !api.isLoggedIn) await doLogin({});
   try {
     return await fn();
   } catch (e) {
-    if (autoLogin && e instanceof EasybasarError && e.body.response === "login") {
+    if (autoLogin && isSessionError(e)) {
       await api.relogin();
       return fn();
     }
@@ -279,6 +280,72 @@ server.registerTool(
     try {
       const b = await withSession(() => basare.select(id), true);
       return ok({ ausgewaehlt: summarize(b) });
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+/** Formular des gewählten Basars laden und prüfen, dass es zu diesem Basar gehört. */
+async function formForSelectedBasar() {
+  return withSession(async () => {
+    const basar = await basare.require();
+    const f = await loadForm(api);
+    if (f.form.basar_id && f.form.basar_id !== basar.ID) {
+      throw new Error(
+        `Der Server liefert das Formular für Basar ${f.form.basar_id}, gewählt ist aber ${basar.ID} (${basar.Basar}).`,
+      );
+    }
+    return { basar, f };
+  }, true);
+}
+
+server.registerTool(
+  "easybasar_artikel_formular",
+  {
+    title: "Artikel-Formular des Basars",
+    description:
+      "Lädt für den gewählten Basar, welche Felder ein Artikel hat (pro Basar unterschiedlich), " +
+      "Preis-Range und -Schritt, Rabatt-Optionen und wie viele Artikel noch frei sind " +
+      "(basar_visible.php, update=reset_form, privileg=seller). Vor jedem Erfassen aufrufen.",
+    inputSchema: {},
+  },
+  async () => {
+    try {
+      const { basar, f } = await formForSelectedBasar();
+      return ok({
+        basar: summarize(basar),
+        ...(limitReached(f.item) ? { achtung: LIMIT_TEXT } : {}),
+        formular: describeForm(f),
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "easybasar_artikel_pruefen",
+  {
+    title: "Artikel prüfen",
+    description:
+      "Prüft einen Artikel gegen das aktuelle Formular des gewählten Basars: Pflichtfelder, " +
+      "Feldlängen, Preis zwischen item_price_min und item_price_max und teilbar durch item_price_div, " +
+      "Rabatt (nur vom Nutzer gewählt) und Artikel-Limit. Liefert Fehler, Warnungen und die normalisierten Werte.",
+    inputSchema: {
+      felder: z
+        .record(z.string())
+        .describe("Feldname → Wert, Namen wie in formular.felder (z. B. Größe, Farbe, Beschreibung)"),
+      preis: z.union([z.number(), z.string()]).describe("Preis, z. B. 2.5 oder \"2,50\""),
+      rabatt: z.number().optional().describe("Nur angeben, wenn der Nutzer eine Rabattstufe gewählt hat"),
+      neu: z.boolean().default(true).describe("true = neuer Artikel (Limit wird geprüft)"),
+    },
+  },
+  async ({ felder, preis, rabatt, neu }) => {
+    try {
+      const { basar, f } = await formForSelectedBasar();
+      const r = checkItem(f, { felder, preis, rabatt }, neu);
+      return { ...ok({ basar: basar.Basar, ...r }), ...(r.ok ? {} : { isError: true }) };
     } catch (e) {
       return fail(e);
     }
