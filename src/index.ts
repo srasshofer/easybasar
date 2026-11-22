@@ -23,14 +23,18 @@ import {
   credentialsFile,
   deleteCredentials,
   loadCredentials,
+  normalizeEmail,
   saveCredentials,
 } from "./credentials.js";
+
+const installDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const loginHint = `Im Terminal einloggen: bash "${path.join(installDir, "login.sh")}"`;
 
 const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => api.relogin());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.6.0" });
+const server = new McpServer({ name: "easybasar", version: "0.6.1" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -56,7 +60,7 @@ class NeedsLogin extends Error {
   constructor() {
     super(
       "Nicht eingeloggt und keine gespeicherten Zugangsdaten. " +
-        "Bitte zuerst easybasar_login aufrufen (E-Mail-Adresse und Passwort beim Nutzer erfragen).",
+        "Am besten: " + loginHint + " (Passwort geht dann nicht durch den Chat).",
     );
   }
 }
@@ -70,7 +74,11 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
     requestedSchema: {
       type: "object",
       properties: {
-        user: { type: "string", title: "E-Mail-Adresse", format: "email" },
+        user: {
+          type: "string",
+          title: "E-Mail-Adresse",
+          description: "Falls @ nicht eingegeben werden kann: (at) oder # statt @ schreiben",
+        },
         password: { type: "string", title: "Passwort" },
         remember: {
           type: "boolean",
@@ -84,7 +92,7 @@ async function askUser(): Promise<(Credentials & { remember: boolean }) | null> 
   if (r.action !== "accept" || !r.content) return null;
   const { user, password, remember } = r.content as Record<string, unknown>;
   if (typeof user !== "string" || typeof password !== "string") return null;
-  return { user, password, remember: remember === true };
+  return { user: normalizeEmail(user), password, remember: remember === true };
 }
 
 /** Reihenfolge: übergebene Daten → gespeicherte Daten → Umgebungsvariablen → Dialog. */
@@ -99,7 +107,7 @@ async function doLogin(opts: {
   let remember = opts.remember ?? false;
   let source = "";
   if (opts.user && opts.password) {
-    creds = { user: opts.user, password: opts.password };
+    creds = { user: normalizeEmail(opts.user), password: opts.password };
     source = "eingegeben";
   } else if ((creds = await loadCredentials())) {
     source = "gespeichert";
@@ -116,6 +124,11 @@ async function doLogin(opts: {
     }
   }
   if (!creds) throw new NeedsLogin();
+  if (source === "Dialog" && !creds.user.includes("@")) {
+    throw new Error(
+      "Die E-Mail-Adresse enthält kein @. Bitte (at) statt @ schreiben. " + loginHint,
+    );
+  }
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
   basare.reset();
   if (remember) await saveCredentials(creds);

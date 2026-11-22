@@ -34,6 +34,14 @@ cp "$DIR/.claude/commands/easybasar.md" "$HOME/.claude/commands/easybasar.md"
 echo "→ Selbsttest …"
 if node "$DIR/scripts/selftest.mjs" "$DIR/dist/index.js"; then
   echo
+  if [ ! -f "${EASYBASAR_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/easybasar-mcp}/credentials.json" ] && [ -t 0 ]; then
+    read -r -p "Jetzt bei easybasar anmelden und Zugangsdaten speichern? [J/n] " A || A=n
+    case "${A:-j}" in
+      [nN]*) echo "Später möglich mit:  bash $DIR/login.sh" ;;
+      *) node "$DIR/scripts/login.mjs" || echo "Erneut versuchen mit:  bash $DIR/login.sh" ;;
+    esac
+    echo
+  fi
   echo "Fertig. Claude Code neu starten (laufende Sitzungen beenden) und eingeben:  /easybasar"
   echo "PDFs landen in: $HOME/Downloads/easybasar"
 else

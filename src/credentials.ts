@@ -37,3 +37,10 @@ export async function deleteCredentials(): Promise<boolean> {
     return false;
   }
 }
+
+/** Ersatzschreibweisen für @ zulassen: "name(at)web.de", "name [at] web.de", "name#web.de". */
+export function normalizeEmail(s: string): string {
+  const t = s.trim();
+  if (t.includes("@")) return t;
+  return t.replace(/\s*[([{]\s*at\s*[)\]}]\s*|\s+at\s+|#/i, "@");
+}

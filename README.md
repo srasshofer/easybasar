@@ -17,7 +17,9 @@ claude   # im Repo starten; .mcp.json registriert den Server "easybasar"
 1. direkt übergebene `user`/`password`
 2. gespeicherte Daten in `~/.config/easybasar-mcp/credentials.json` (bzw. `$EASYBASAR_CONFIG_DIR`)
 3. Umgebungsvariablen `EASYBASAR_USER` / `EASYBASAR_PASSWORD` (optional)
-4. Eingabedialog des MCP-Clients (Elicitation) mit Option „speichern“ – das Passwort läuft dabei nicht durch das Sprachmodell
+4. Eingabedialog des MCP-Clients (Elicitation) mit Option „speichern“ – das Passwort läuft dabei nicht durch das Sprachmodell. Lässt sich dort kein `@` eingeben, `(at)` schreiben.
+
+Empfohlen: einmalig im Terminal `bash login.sh` im Installationsordner – fragt E-Mail und Passwort (verdeckt), prüft sie bei easybasar und speichert sie. `install.sh` bietet das am Ende an.
 
 Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true` oder Häkchen im Dialog). Die Datei ist **unverschlüsselt** (Rechte 0600). Löschen: `easybasar_logout` mit `forget: true`.
 
