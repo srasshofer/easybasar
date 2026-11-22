@@ -76,6 +76,47 @@ server.registerTool(
 );
 
 server.registerTool(
+  "easybasar_signup",
+  {
+    title: "Neues easybasar-Konto erstellen",
+    description:
+      "Registriert einen neuen Verkäufer über app_signup. Nur aufrufen, nachdem der Nutzer die " +
+      "Bedingungen (https://www.easybasar.de/asb) und den Datenschutz " +
+      "(https://www.easybasar.de/datenschutzbestimmungen) gesehen und AUSDRÜCKLICH akzeptiert hat – " +
+      "conditions und data_protection müssen true sein. Danach muss das Konto über den " +
+      "Aktivierungslink in der E-Mail aktiviert werden, bevor ein Login möglich ist.",
+    inputSchema: {
+      first_name: z.string().min(1),
+      last_name: z.string().min(1),
+      street: z.string().min(1),
+      zip: z.string().min(1),
+      city: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(1),
+      phone: z.string().min(1),
+      conditions: z
+        .literal(true)
+        .describe("Bedingungen akzeptiert – nur true, wenn der Nutzer zugestimmt hat"),
+      data_protection: z
+        .literal(true)
+        .describe("Datenschutz akzeptiert – nur true, wenn der Nutzer zugestimmt hat"),
+    },
+  },
+  async (args) => {
+    try {
+      const data = {
+        ...args,
+        conditions: String(args.conditions),
+        data_protection: String(args.data_protection),
+      };
+      return ok(await api.request("app_signup", "POST", data, { Accept: "application/json" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
   "easybasar_status",
   {
     title: "Session-Status",

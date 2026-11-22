@@ -29,6 +29,7 @@ Endpunkte werden als `<basis>/<endpoint>.php` aufgerufen, Parameter als `applica
 ## Tools
 
 - `easybasar_login` – `app_login` mit `user`, `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
+- `easybasar_signup` – neues Konto über `app_signup`; `conditions` und `data_protection` müssen `true` sein (nur nach Zustimmung des Nutzers). Danach Aktivierungslink in der E-Mail klicken.
 - `easybasar_status` – Session-Status und letzte Login-Antwort
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)
