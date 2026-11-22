@@ -26,3 +26,9 @@ Danach: Claude Code neu starten, `/easybasar` eingeben.
 - Basis immer Instanz `a`: `https://www.easybasar.de/app/v0.8/a/includes/<endpoint>.php`
 - Nutzer sieht von Servermeldungen nur `msg` und `solution` (keine Nummern).
 - Endpunkte nie erfinden – nur die vom Nutzer genannten verwenden.
+
+## Offene Punkte (vom Nutzer vertagt)
+
+- **JWT:** `app_login` liefert einen JWT, der länger gilt als die Session. Ziel: JWT statt Passwort speichern und damit neue Sessions erzeugen. Noch unbekannt: Feldname in der Login-Antwort, Aufruf zum Erneuern der Session, Fehlerantwort bei abgelaufenem JWT. Nicht raten – beim Nutzer erfragen.
+- **Rabatt:** Parameter für `item_tool.php` unbekannt; Erfassen mit Rabatt > 0 bricht bewusst ab.
+- **Artikel bearbeiten / löschen (`itemremove`) / Meine Artikelliste:** Endpunkte fehlen.
