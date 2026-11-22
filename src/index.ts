@@ -7,7 +7,16 @@ import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError } from "./client.js";
 import { render } from "./format.js";
 import { BasarState, summarize } from "./basar.js";
-import { LIMIT_TEXT, checkItem, describeForm, isSessionError, limitReached, loadForm } from "./artikel.js";
+import {
+  LIMIT_TEXT,
+  checkItem,
+  describeForm,
+  isSessionError,
+  itemNumber,
+  itemToolData,
+  limitReached,
+  loadForm,
+} from "./artikel.js";
 import { BASES, BaseName } from "./config.js";
 import {
   Credentials,
@@ -286,6 +295,14 @@ server.registerTool(
   },
 );
 
+const itemSchema = {
+  felder: z
+    .record(z.string())
+    .describe("Feldname → Wert, Namen wie in formular.felder (z. B. Größe, Farbe, Beschreibung)"),
+  preis: z.union([z.number(), z.string()]).describe('Preis, z. B. 2.5 oder "2,50"'),
+  rabatt: z.number().optional().describe("Nur angeben, wenn der Nutzer eine Rabattstufe gewählt hat"),
+};
+
 /** Formular des gewählten Basars laden und prüfen, dass es zu diesem Basar gehört. */
 async function formForSelectedBasar() {
   return withSession(async () => {
@@ -333,11 +350,7 @@ server.registerTool(
       "Feldlängen, Preis zwischen item_price_min und item_price_max und teilbar durch item_price_div, " +
       "Rabatt (nur vom Nutzer gewählt) und Artikel-Limit. Liefert Fehler, Warnungen und die normalisierten Werte.",
     inputSchema: {
-      felder: z
-        .record(z.string())
-        .describe("Feldname → Wert, Namen wie in formular.felder (z. B. Größe, Farbe, Beschreibung)"),
-      preis: z.union([z.number(), z.string()]).describe("Preis, z. B. 2.5 oder \"2,50\""),
-      rabatt: z.number().optional().describe("Nur angeben, wenn der Nutzer eine Rabattstufe gewählt hat"),
+      ...itemSchema,
       neu: z.boolean().default(true).describe("true = neuer Artikel (Limit wird geprüft)"),
     },
   },
@@ -346,6 +359,53 @@ server.registerTool(
       const { basar, f } = await formForSelectedBasar();
       const r = checkItem(f, { felder, preis, rabatt }, neu);
       return { ...ok({ basar: basar.Basar, ...r }), ...(r.ok ? {} : { isError: true }) };
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+
+server.registerTool(
+  "easybasar_artikel_erfassen",
+  {
+    title: "Artikel erfassen",
+    description:
+      "Erfasst einen neuen Artikel im gewählten Basar (item_tool.php). Lädt vorher das Formular, " +
+      "prüft alles wie easybasar_artikel_pruefen und sendet nur, wenn die Prüfung fehlerfrei ist. " +
+      "Nur aufrufen, nachdem der Nutzer die Werte bestätigt hat (bestaetigt=true). " +
+      "Die Beschreibung kann danach nicht mehr geändert werden.",
+    inputSchema: {
+      ...itemSchema,
+      bestaetigt: z.literal(true).describe("Nutzer hat die angezeigten Werte bestätigt"),
+    },
+  },
+  async ({ felder, preis, rabatt }) => {
+    try {
+      const { basar, f } = await formForSelectedBasar();
+      const r = checkItem(f, { felder, preis, rabatt }, true);
+      if (!r.ok) return { isError: true, ...ok({ basar: basar.Basar, ...r }) };
+      if (r.normalisiert!.rabatt) {
+        throw new Error(
+          "Rabatt kann noch nicht übertragen werden (Parameter für item_tool.php unbekannt). " +
+            "Artikel wurde nicht erfasst.",
+        );
+      }
+      const res = await withSession(
+        () => api.request("item_tool", "POST", itemToolData(r.normalisiert!)),
+        true,
+      );
+      const frei = Math.max(0, f.item.item_max_count - f.item.item_actual_count - 1);
+      return text(
+        [
+          render(res),
+          JSON.stringify(
+            { artikelnummer: itemNumber(res), basar: basar.Basar, freiePlaetze: frei, warnungen: r.warnungen },
+            null,
+            2,
+          ),
+        ].join("\n\n"),
+      );
     } catch (e) {
       return fail(e);
     }

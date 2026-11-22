@@ -214,3 +214,20 @@ export function checkItem(f: FormInfo, input: ItemInput, isNew = true): CheckRes
 export function isSessionError(e: unknown): boolean {
   return e instanceof EasybasarError && (e.body.response === "login" || e.body.number === 110);
 }
+
+/** POST-Daten für item_tool.php aus einem geprüften Artikel. Feldnamen = Namen aus item_description_fields. */
+export function itemToolData(normalized: NonNullable<CheckResult["normalisiert"]>): Record<string, string> {
+  return {
+    price: normalized.preis,
+    right: "seller",
+    big_item: "false",
+    item_count: "1",
+    ...normalized.felder,
+  };
+}
+
+/** Artikelnummer aus der Antwort von item_tool.php (info.additional). */
+export function itemNumber(res: unknown): string | undefined {
+  const a = (res as { info?: { additional?: unknown } })?.info?.additional;
+  return a === undefined || a === null || a === "" ? undefined : String(a);
+}
