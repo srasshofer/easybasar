@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError } from "./client.js";
+import { render } from "./format.js";
 import { BASES, BaseName } from "./config.js";
 import {
   Credentials,
@@ -19,20 +20,12 @@ const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "download
 
 const server = new McpServer({ name: "easybasar", version: "0.1.0" });
 
-const ok = (data: unknown) => ({
-  content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-});
+const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
+
+const ok = (data: unknown) => text(render(data));
 const fail = (e: unknown) => ({
   isError: true,
-  content: [
-    {
-      type: "text" as const,
-      text:
-        e instanceof EasybasarError
-          ? JSON.stringify({ error: e.body }, null, 2)
-          : String(e instanceof Error ? e.message : e),
-    },
-  ],
+  ...text(e instanceof Error ? e.message : String(e)),
 });
 
 const baseSchema = z
@@ -113,14 +106,7 @@ async function doLogin(opts: {
   if (!creds) throw new NeedsLogin();
   const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
   if (remember) await saveCredentials(creds);
-  return {
-    loggedIn: true,
-    user: creds.user,
-    source,
-    saved: remember,
-    sessionCookies: api.cookieNames,
-    response,
-  };
+  return { response, status: { user: creds.user, source, saved: remember } };
 }
 
 /** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (response = "login") einmal neu. */
@@ -159,7 +145,12 @@ server.registerTool(
   },
   async (args) => {
     try {
-      return ok(await doLogin(args));
+      const { response, status } = await doLogin(args);
+      return text(
+        [render(response), `Eingeloggt als ${status.user}` + (status.saved ? " (Zugangsdaten gespeichert)" : "")]
+          .filter((t) => t !== "OK")
+          .join("\n\n"),
+      );
     } catch (e) {
       return fail(e);
     }
@@ -235,7 +226,6 @@ server.registerTool(
       sessionCookies: api.cookieNames,
       savedCredentials: (await loadCredentials())?.user ?? null,
       credentialsFile,
-      lastLogin: api.lastLogin,
       bases: BASES,
     }),
 );

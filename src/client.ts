@@ -16,10 +16,17 @@ export interface EasybasarErrorBody {
   message?: unknown;
 }
 
+/** Nutzertext einer Server-Meldung (error/info): nur msg und solution, ohne Nummer. */
+export function messageText(m: EasybasarErrorBody | undefined): string {
+  return [m?.msg, m?.solution]
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
 export class EasybasarError extends Error {
   constructor(public readonly body: EasybasarErrorBody) {
-    const parts = [body.msg?.trim(), body.solution?.trim()].filter(Boolean);
-    super(`easybasar-Fehler ${body.number ?? "?"}: ${parts.join(" – ")}`);
+    super(messageText(body) || "Unbekannter Fehler von easybasar.");
   }
 }
 

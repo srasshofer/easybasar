@@ -46,4 +46,12 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)
 
-Fehler der API (`{"error": {"number", "msg", "solution", ...}}`) werden als Tool-Fehler durchgereicht.
+## Meldungen vom Server
+
+easybasar antwortet mit `error` oder `info`, z. B.
+
+```json
+{"info":{"response":"itemremove","number":707,"msg":"Artikel wurde gelöscht 1","solution":"","additional":1,"message":{}}}
+```
+
+Die Tools geben davon **nur `msg` und `solution`** aus (bei `error` als Tool-Fehler) – ohne Nummer und ohne `response`/`additional`/`message`. Weitere Felder der Antwort (Nutzdaten) folgen als JSON.
