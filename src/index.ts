@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.2" });
+const server = new McpServer({ name: "easybasar", version: "0.10.3" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -500,12 +500,11 @@ server.registerTool(
       "Ändert einen bestehenden Artikel im gewählten Basar (item_tool.php, action=edit, NumberEdit). " +
       "Preis ist Pflicht und wird wie beim Erfassen geprüft; von den Feldern werden nur angegebene, " +
       "nicht-leere gesendet. Rabatt nur, wenn der Basar ihn anbietet und der Nutzer ihn gewählt hat. " +
-      "Nur nach Bestätigung des Nutzers (bestaetigt=true).",
+      "Ohne Rückfrage aufrufen, sobald klar ist, welcher Artikel wie geändert werden soll.",
     inputSchema: {
       artikelnummer: z.string().min(1).describe("Artikelnummer (Barcode), z. B. 4110000167149"),
       ...itemSchema,
       felder: itemSchema.felder.default({}),
-      bestaetigt: z.literal(true).describe("Nutzer hat die Änderung bestätigt"),
     },
   },
   async ({ artikelnummer, felder, preis, rabatt }) => {

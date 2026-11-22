@@ -94,12 +94,12 @@ test("Artikel erfassen: Login → Basar → Formular → item_tool", async () =>
 });
 
 test("Artikel bearbeiten: action=edit, NumberEdit, nur nicht-leere Felder, Rabatt als discount", async () => {
-  const r = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", felder: { Farbe: "rot" }, preis: 3, bestaetigt: true });
+  const r = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", felder: { Farbe: "rot" }, preis: 3 });
   assert.equal(r.err, false, r.text);
   assert.match(r.text, /^Artikel wurde geändert 4110000167149/);
   const { __path, ...sent } = posts.filter((p) => p.ep === "item_tool").at(-1).data;
   assert.deepEqual(sent, { price: "3,00", right: "seller", big_item: "false", action: "edit", NumberEdit: "4110000167149", Farbe: "rot" });
-  const bad = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", preis: 3.2, bestaetigt: true });
+  const bad = await call("easybasar_artikel_bearbeiten", { artikelnummer: "4110000167149", preis: 3.2 });
   assert.equal(bad.err, true);
   assert.match(bad.text, /Schritten/);
 });
@@ -131,8 +131,8 @@ test("Artikel löschen: Nummer → ID aus Liste, api/php, itemDeleteFinal, iid[]
 });
 
 test("Bearbeiten: unbekannter oder gesperrter Artikel wird nicht gesendet", async () => {
-  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "000", preis: 1, bestaetigt: true })).text, /nicht unter den erfassten/);
-  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "777", preis: 1, bestaetigt: true })).text, /kann nicht mehr bearbeitet/);
+  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "000", preis: 1 })).text, /nicht unter den erfassten/);
+  assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "777", preis: 1 })).text, /kann nicht mehr bearbeitet/);
 });
 
 test.after(async () => { await client.close(); srv.close(); });
