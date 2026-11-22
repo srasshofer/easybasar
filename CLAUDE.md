@@ -4,7 +4,7 @@
 
 1. `version` in `package.json` und in `src/index.ts` (`new McpServer({ version })`) erhöhen.
 2. `scripts/package.sh` ausführen (baut, testet, erzeugt `release/easybasar-<version>.zip`).
-3. Die ZIP-Datei per SendUserFile an den Nutzer senden.
+3. Die ZIP-Datei per SendUserFile an den Nutzer senden. `package.sh` baut außerdem `easybasar-<version>.mcpb` und `easybasar-skill-<version>.zip` für die Claude-Desktop-App – mitsenden, wenn sich Server oder Anleitung geändert haben.
 4. Dem Nutzer genau diese drei Befehle (je eigener `bash`-Codeblock, `<version>` eingesetzt) geben:
 
 ```bash
@@ -22,6 +22,11 @@ Danach: Claude Code neu starten, `/easybasar` eingeben.
 `ANLEITUNG.txt` (für Kollegen, ohne persönlichen Pfad) liegt in jeder ZIP – bei Änderungen an Installation oder Funktionen mitpflegen.
 
 `install.sh` registriert den MCP-Server benutzerweit (`claude mcp add -s user`, ersetzt ältere Versionen) und kopiert den Befehl nach `~/.claude/commands/easybasar.md`.
+
+## Claude-Desktop-App
+
+- `scripts/build-desktop.mjs` baut `.mcpb` (Manifest 0.3, Tool-Liste live vom Server, `user_config` user/password → `EASYBASAR_USER`/`EASYBASAR_PASSWORD`, `EASYBASAR_HOST=desktop`) und den Skill aus `.claude/commands/easybasar.md`.
+- Einzige Quelle für Claudes Arbeitsanweisungen ist `.claude/commands/easybasar.md`; Hinweise dort neutral halten (gilt für Claude Code und Desktop).
 
 ## API
 

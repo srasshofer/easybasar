@@ -14,3 +14,4 @@ cp .claude/commands/easybasar.md "$STAGE/.claude/commands/"
 rm -f "release/$NAME.zip"
 (cd "$(dirname "$STAGE")" && zip -qr -X "$OLDPWD/release/$NAME.zip" "$NAME")
 echo "release/$NAME.zip"
+node scripts/build-desktop.mjs

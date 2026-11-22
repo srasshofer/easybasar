@@ -2,6 +2,13 @@
 
 MCP-Server, der die App-API von easybasar.de anspricht – als Nachbau von `ApiGeneralRequest().request(...)` aus der easybasar-App. In Claude Code über **`/easybasar`** aufrufbar.
 
+## Claude-Desktop-App
+
+`scripts/package.sh` erzeugt zusätzlich:
+
+- `release/easybasar-<version>.mcpb` – Erweiterung (MCP-Server inkl. `node_modules`). Doppelklick öffnet sie in Claude; Login (E-Mail/Benutzername + Passwort) wird in den Einstellungen der Erweiterung eingetragen, das Passwort speichert Claude sicher (`sensitive`). Node.js bringt Claude für macOS/Windows mit.
+- `release/easybasar-skill-<version>.zip` – Skill `easybasar` (Ordner `easybasar/` mit `SKILL.md`, erzeugt aus `.claude/commands/easybasar.md`) zum Hochladen unter Anpassen → Skills.
+
 ## Setup
 
 ```bash

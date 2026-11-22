@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -29,14 +30,19 @@ import {
   saveCredentials,
 } from "./credentials.js";
 
-const installDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const loginHint = `Im Terminal einloggen: bash "${path.join(installDir, "login.sh")}"`;
+const installDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// In der Claude-Desktop-App (Erweiterung .mcpb) stehen die Zugangsdaten in den Einstellungen der Erweiterung.
+const isDesktop = process.env.EASYBASAR_HOST === "desktop";
+const loginHint = isDesktop
+  ? "In Claude: Einstellungen → Erweiterungen → easybasar → „Konfigurieren“ und E-Mail-Adresse " +
+    "oder Benutzername sowie Passwort eintragen, dann die Erweiterung aus- und wieder einschalten."
+  : `Im Terminal einloggen: bash "${path.join(installDir, "login.sh")}"`;
 
 const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.5" });
+const server = new McpServer({ name: "easybasar", version: "0.11.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -60,7 +66,7 @@ const dataSchema = z
 
 class NeedsLogin extends Error {
   constructor(reason = "Nicht eingeloggt und keine gespeicherte Anmeldung.") {
-    super(`${reason} Am besten: ${loginHint} (Passwort geht dann nicht durch den Chat).`);
+    super(`${reason} ${loginHint} (Das Passwort geht so nicht durch den Chat.)`);
   }
 }
 
@@ -141,9 +147,13 @@ async function doLogin(opts: {
       await deleteCredentials();
     }
   }
-  if (!creds && process.env.EASYBASAR_USER && process.env.EASYBASAR_PASSWORD) {
-    creds = { user: process.env.EASYBASAR_USER, password: process.env.EASYBASAR_PASSWORD };
-    source = "Umgebungsvariablen";
+  // Umgebung bzw. Einstellungen der Desktop-Erweiterung (nicht ersetzte Platzhalter "${…}" ignorieren).
+  const envVal = (v?: string) => (v && !v.startsWith("${") ? v.trim() : "");
+  const envUser = envVal(process.env.EASYBASAR_USER);
+  const envPass = envVal(process.env.EASYBASAR_PASSWORD);
+  if (!creds && envUser && envPass) {
+    creds = { user: normalizeLogin(envUser), password: envPass };
+    source = isDesktop ? "Einstellungen der Erweiterung" : "Umgebungsvariablen";
   }
   if (!creds && opts.interactive !== false) {
     const asked = await askUser();

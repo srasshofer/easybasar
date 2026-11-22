@@ -1,10 +1,27 @@
-easybasar für Claude Code – Installation
-========================================
+easybasar für Claude – Installation
+===================================
 
-Damit kannst du in Claude Code mit /easybasar als Verkäufer bei easybasar.de
+Damit kannst du in Claude (Desktop-App oder Claude Code) als Verkäufer bei easybasar.de
 arbeiten: Basar wählen, Artikel erfassen, bearbeiten, löschen und deine
 Artikellisten (erfasst, abgegeben, verkauft, zurücksortiert) ansehen.
 
+
+Variante A: Claude-App (Desktop, macOS/Windows) – ohne Terminal
+---------------------------------------------------------------
+1. easybasar-VERSION.mcpb doppelklicken → Claude öffnet die Installation → "Installieren".
+   (Alternativ: Claude → Einstellungen → Erweiterungen → Datei hineinziehen.)
+2. E-Mail-Adresse oder Benutzername und Passwort eintragen und speichern,
+   Erweiterung einschalten.
+3. Skill hochladen: Claude → Anpassen → Skills → "+" → "Skill hochladen" →
+   easybasar-skill-VERSION.zip wählen und einschalten.
+   (Dafür muss unter Einstellungen → Funktionen "Code-Ausführung und
+   Dateierstellung" aktiviert sein.)
+4. Im Chat einfach schreiben, z. B.: "Zeig meine easybasar-Artikel".
+Update: neue .mcpb genauso installieren, neuen Skill hochladen (alten löschen).
+
+
+Variante B: Claude Code (Terminal)
+==================================
 
 Voraussetzungen
 ---------------
@@ -20,7 +37,7 @@ Installation
 1. Die ZIP-Datei in den Ordner "Downloads" speichern.
 
 2. Terminal öffnen und nacheinander ausführen
-   (VERSION durch die Versionsnummer im Dateinamen ersetzen, z. B. 0.10.5):
+   (VERSION durch die Versionsnummer im Dateinamen ersetzen, z. B. 0.11.0):
 
    mkdir -p ~/easybasar-mcp && cd ~/easybasar-mcp
 

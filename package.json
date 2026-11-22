@@ -1,7 +1,7 @@
 {
   "name": "easybasar-mcp",
-  "version": "0.10.5",
-  "description": "MCP-Server f\u00fcr easybasar.de (Verk\u00e4ufer)",
+  "version": "0.11.0",
+  "description": "MCP-Server für easybasar.de (Verkäufer)",
   "type": "module",
   "bin": {
     "easybasar-mcp": "dist/index.js"
@@ -22,6 +22,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   }
