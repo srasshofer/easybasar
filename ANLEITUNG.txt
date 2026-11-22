@@ -20,7 +20,7 @@ Installation
 1. Die ZIP-Datei in den Ordner "Downloads" speichern.
 
 2. Terminal öffnen und nacheinander ausführen
-   (VERSION durch die Versionsnummer im Dateinamen ersetzen, z. B. 0.10.4):
+   (VERSION durch die Versionsnummer im Dateinamen ersetzen, z. B. 0.10.5):
 
    mkdir -p ~/easybasar-mcp && cd ~/easybasar-mcp
 
@@ -48,6 +48,8 @@ Wichtig
 - Update: neue ZIP genauso installieren (Schritt 2). Die neue Version ersetzt
   die alte automatisch, deine Anmeldung bleibt erhalten. Alte Ordner kannst du
   danach löschen.
+- Abmelden: in Claude Code "/easybasar abmelden" – meldet bei easybasar ab und
+  löscht die gespeicherte Anmeldung auf diesem Rechner.
 - Neu anmelden (z. B. anderes Konto oder Anmeldung abgelaufen):
     bash ~/easybasar-mcp/easybasar-VERSION/login.sh
 - PDFs (z. B. Etiketten) landen in ~/Downloads/easybasar

@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.4" });
+const server = new McpServer({ name: "easybasar", version: "0.10.5" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -244,15 +244,31 @@ server.registerTool(
 server.registerTool(
   "easybasar_logout",
   {
-    title: "Abmelden / gespeicherte Zugangsdaten löschen",
+    title: "Abmelden",
     description:
-      "Beendet die lokale Session. forget=true löscht zusätzlich die gespeicherten Zugangsdaten.",
-    inputSchema: { forget: z.boolean().default(false) },
+      "Meldet bei easybasar ab (app_logout) und löscht die gespeicherte Anmeldung auf diesem Rechner – " +
+      "wie „Abmelden“ in der App. Danach ist ein neuer Login nötig.",
+    inputSchema: {},
   },
-  async ({ forget }) => {
-    api.logout();
-    basare.reset();
-    return ok({ loggedIn: false, credentialsDeleted: forget ? await deleteCredentials() : false });
+  async () => {
+    let res: unknown = null;
+    try {
+      // Ohne aktive Session mit dem gespeicherten JWT eine holen, damit der Server wirklich abmeldet.
+      if (!api.isLoggedIn) {
+        const saved = await loadCredentials();
+        if (saved?.jwt) await api.renew(saved.jwt, saved.user);
+      }
+      if (api.isLoggedIn) res = await api.request("app_logout", "POST", {}, { Accept: "application/json" });
+    } catch {
+      // Wie in der App: Fehler beim Server-Logout ignorieren, lokal wird trotzdem abgemeldet.
+    } finally {
+      api.logout();
+      basare.reset();
+      persistJwt = false;
+      await deleteCredentials();
+    }
+    const msg = res ? render(res) : "";
+    return text(msg && msg !== "OK" ? msg : "Abgemeldet.");
   },
 );
 

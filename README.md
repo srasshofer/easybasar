@@ -21,7 +21,7 @@ claude   # im Repo starten; .mcp.json registriert den Server "easybasar"
 
 Empfohlen: einmalig im Terminal `bash login.sh` im Installationsordner – fragt E-Mail-Adresse oder Benutzername und Passwort (verdeckt), prüft sie bei easybasar und speichert sie. `install.sh` bietet das am Ende an.
 
-Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true`, Häkchen im Dialog oder `login.sh`) – und zwar **nur Login-Name und JWT, nie das Passwort** (Datei mit Rechten 0600). Läuft die Session ab (Fehler 110), holt der Server mit dem JWT eine neue (`app_login` mit `Authorization: Bearer <jwt>`, ohne Passwort). Ist auch der JWT abgelaufen, wird die gespeicherte Anmeldung gelöscht und ein neuer Login verlangt. Alte Dateien mit Passwort werden beim nächsten Login auf JWT umgestellt. Löschen: `easybasar_logout` mit `forget: true`.
+Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true`, Häkchen im Dialog oder `login.sh`) – und zwar **nur Login-Name und JWT, nie das Passwort** (Datei mit Rechten 0600). Läuft die Session ab (Fehler 110), holt der Server mit dem JWT eine neue (`app_login` mit `Authorization: Bearer <jwt>`, ohne Passwort). Ist auch der JWT abgelaufen, wird die gespeicherte Anmeldung gelöscht und ein neuer Login verlangt. Alte Dateien mit Passwort werden beim nächsten Login auf JWT umgestellt. Löschen: `easybasar_logout` (meldet auch bei easybasar ab).
 
 Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 
@@ -43,7 +43,7 @@ Nach dem Login läuft alles über das **Session-Cookie**: Es wird bei jedem Aufr
 
 - `easybasar_login` – `app_login` mit `user` (E-Mail oder Benutzername), `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
 - `easybasar_signup` – neues Konto über `app_signup`; `conditions` und `data_protection` müssen `true` sein (nur nach Zustimmung des Nutzers). Danach Aktivierungslink in der E-Mail klicken.
-- `easybasar_logout` – Session beenden, optional gespeicherte Zugangsdaten löschen
+- `easybasar_logout` – Abmelden über `app_logout` (POST ohne Parameter); löscht danach die gespeicherte Anmeldung (auch wenn der Server-Aufruf fehlschlägt)
 - `easybasar_status` – Session-Status und letzte Login-Antwort
 - `easybasar_basare` – Basare laden (`basar_list.php`, `action=app`); genau ein Basar → automatisch ausgewählt
 - `easybasar_basar_waehlen` – Basar per `data.ID` auswählen und dem Server mitteilen (`select_basar_seller_chiffre` mit `basar_id`, `privileg=seller`, `mod_seller=true`). Voraussetzung für alle Artikel-Aktionen. Der Server merkt sich die Auswahl in der Session; deshalb wird sie vor jedem Formular-Abruf und direkt vor `item_tool` erneut gesetzt (auch nach einem automatischen Re-Login).

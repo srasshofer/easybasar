@@ -6,7 +6,7 @@ argument-hint: "[was du tun willst, z. B. 'einloggen' oder 'Etiketten herunterla
 Du hilfst einem **Verkäufer** auf easybasar.de. Nutze dafür ausschließlich die Tools des MCP-Servers `easybasar`:
 
 - `easybasar_login` – Anmeldung über `app_login` mit E-Mail-Adresse **oder Benutzername** + Passwort (`force_logout: true`, wenn die Sitzung auf einem anderen Gerät beendet werden soll).
-- `easybasar_logout` – Session beenden; `forget: true` löscht gespeicherte Zugangsdaten.
+- `easybasar_logout` – Abmelden bei easybasar (`app_logout`); löscht auch die gespeicherte Anmeldung. Ohne Rückfrage, wenn der Nutzer sich abmelden will.
 - `easybasar_signup` – Neues Konto über `app_signup` (Vorname, Nachname, Straße, PLZ, Ort, E-Mail, Passwort, Telefon).
 - `easybasar_status` – Prüfen, ob eine Session besteht.
 - `easybasar_basare` – Basare des Verkäufers laden (`basar_list.php`, `action=app`); bei genau einem Basar wird er automatisch ausgewählt.

@@ -35,6 +35,7 @@ const srv = http.createServer((req, res) => {
       const jwt = newSession();
       return json({ info: { number: 2205, msg: "", solution: "", message: { jwt, instance: st.session } } }, { "Set-Cookie": `PHPSESSID=${st.session}; Path=/` });
     }
+    if (ep === "app_logout") { if (ck !== st.session) return json({ error: { number: 110, msg: "x", solution: "" } }); st.session = null; st.validJwts.clear(); return json({ info: { number: 2210, msg: "Sie wurden abgemeldet.", solution: "" } }); }
     if (!ck || ck !== st.session) return json({ error: { response: "visible", number: 110, msg: "Keine gültige Session.", solution: "" } });
     if (ep === "basar_list") return json({ data: [{ ID: "A", Basar: "Testbasar", VKNr: "201" }] });
     if (ep === "select_basar_seller_chiffre") return json({ info: { msg: "", solution: "" } });
@@ -133,6 +134,31 @@ test("Login mit Benutzername statt E-Mail", async () => {
   assert.equal(r.err, false, r.text);
   assert.equal(st.log.slice(before).find((l) => l.ep === "app_login").data.user, "max_2026");
   await client.close();
+});
+
+test("Abmelden: app_logout mit Session, danach gespeicherte Anmeldung gelöscht", async () => {
+  const { client, call } = await start();
+  await call("easybasar_login", { user: "max", password: "pw", remember: true });
+  assert.ok(existsSync(credFile));
+  const r = await call("easybasar_logout");
+  assert.equal(r.err, false, r.text);
+  assert.equal(r.text, "Sie wurden abgemeldet.");
+  const l = st.log.filter((x) => x.ep === "app_logout").at(-1);
+  assert.deepEqual(l.data, {});
+  assert.ok(l.ck, "mit Session-Cookie");
+  assert.equal(existsSync(credFile), false);
+  await client.close();
+});
+
+test("Abmelden nach Neustart: Session per JWT holen, dann app_logout", async () => {
+  const { client, call } = await start();
+  await call("easybasar_login", { user: "max", password: "pw", remember: true });
+  await client.close();
+  const c2 = await start();
+  const r = await c2.call("easybasar_logout");
+  assert.equal(r.text, "Sie wurden abgemeldet.");
+  assert.equal(existsSync(credFile), false);
+  await c2.client.close();
 });
 
 test.after(() => srv.close());
