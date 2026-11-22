@@ -2,10 +2,10 @@
   "mcpServers": {
     "easybasar": {
       "command": "node",
-      "args": ["dist/index.js"],
+      "args": [
+        "dist/index.js"
+      ],
       "env": {
-        "EASYBASAR_USER": "${EASYBASAR_USER}",
-        "EASYBASAR_PASSWORD": "${EASYBASAR_PASSWORD}",
         "EASYBASAR_DOWNLOAD_DIR": "${EASYBASAR_DOWNLOAD_DIR:-downloads}"
       }
     }

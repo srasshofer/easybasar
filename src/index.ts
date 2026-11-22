@@ -6,11 +6,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { ApiGeneralRequest, EasybasarError } from "./client.js";
 import { BASES, BaseName } from "./config.js";
+import {
+  Credentials,
+  credentialsFile,
+  deleteCredentials,
+  loadCredentials,
+  saveCredentials,
+} from "./credentials.js";
 
-const api = new ApiGeneralRequest(
-  process.env.EASYBASAR_USER,
-  process.env.EASYBASAR_PASSWORD,
-);
+const api = new ApiGeneralRequest();
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
 const server = new McpServer({ name: "easybasar", version: "0.1.0" });
@@ -43,14 +47,83 @@ const dataSchema = z
   .default({})
   .describe("Formular-Parameter (POST-Body bzw. Query bei GET)");
 
-/** Führt fn aus; bei einem Session-Fehler (response = "login") einmal neu einloggen. */
+class NeedsLogin extends Error {
+  constructor() {
+    super(
+      "Nicht eingeloggt und keine gespeicherten Zugangsdaten. " +
+        "Bitte zuerst easybasar_login aufrufen (E-Mail-Adresse und Passwort beim Nutzer erfragen).",
+    );
+  }
+}
+
+/** Fragt E-Mail/Passwort über einen Dialog des MCP-Clients ab (Elicitation), falls unterstützt. */
+async function askUser(): Promise<(Credentials & { remember: boolean }) | null> {
+  if (!server.server.getClientCapabilities()?.elicitation) return null;
+  const r = await server.server.elicitInput({
+    message:
+      "easybasar-Login: Die Eingaben gehen direkt an den easybasar-Server, nicht an das Sprachmodell.",
+    requestedSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string", title: "E-Mail-Adresse", format: "email" },
+        password: { type: "string", title: "Passwort" },
+        remember: {
+          type: "boolean",
+          title: "Zugangsdaten auf diesem Rechner speichern",
+          default: false,
+        },
+      },
+      required: ["user", "password"],
+    },
+  });
+  if (r.action !== "accept" || !r.content) return null;
+  const { user, password, remember } = r.content as Record<string, unknown>;
+  if (typeof user !== "string" || typeof password !== "string") return null;
+  return { user, password, remember: remember === true };
+}
+
+/** Reihenfolge: übergebene Daten → gespeicherte Daten → Umgebungsvariablen → Dialog. */
+async function doLogin(opts: {
+  user?: string;
+  password?: string;
+  remember?: boolean;
+  force_logout?: boolean;
+  interactive?: boolean;
+}) {
+  let creds: Credentials | null = null;
+  let remember = opts.remember ?? false;
+  let source = "";
+  if (opts.user && opts.password) {
+    creds = { user: opts.user, password: opts.password };
+    source = "eingegeben";
+  } else if ((creds = await loadCredentials())) {
+    source = "gespeichert";
+    remember = false;
+  } else if (process.env.EASYBASAR_USER && process.env.EASYBASAR_PASSWORD) {
+    creds = { user: process.env.EASYBASAR_USER, password: process.env.EASYBASAR_PASSWORD };
+    source = "Umgebungsvariablen";
+  } else if (opts.interactive !== false) {
+    const asked = await askUser();
+    if (asked) {
+      creds = asked;
+      remember = asked.remember || remember;
+      source = "Dialog";
+    }
+  }
+  if (!creds) throw new NeedsLogin();
+  const response = await api.login(creds.user, creds.password, opts.force_logout ?? false);
+  if (remember) await saveCredentials(creds);
+  return { loggedIn: true, user: creds.user, source, saved: remember, response };
+}
+
+/** Führt fn aus; loggt vorher ggf. ein und bei Session-Fehler (response = "login") einmal neu. */
 async function withSession<T>(fn: () => Promise<T>, autoLogin: boolean): Promise<T> {
-  if (autoLogin) await api.ensureLogin();
+  if (autoLogin && !api.isLoggedIn) await doLogin({});
   try {
     return await fn();
   } catch (e) {
     if (autoLogin && e instanceof EasybasarError && e.body.response === "login") {
-      await api.login();
+      await api.relogin();
       return fn();
     }
     throw e;
@@ -62,16 +135,41 @@ server.registerTool(
   {
     title: "Bei easybasar einloggen",
     description:
-      "Meldet den Verkäufer per app_login an (Zugangsdaten aus EASYBASAR_USER/EASYBASAR_PASSWORD). " +
+      "Meldet den Verkäufer per app_login an. Ohne user/password werden zuerst gespeicherte " +
+      "Zugangsdaten genutzt, sonst wird der Nutzer per Dialog gefragt (Passwort geht dann nicht " +
+      "durch den Chat). Nur wenn das scheitert, E-Mail-Adresse/Passwort im Chat erfragen und übergeben. " +
+      "remember=true speichert die Zugangsdaten lokal (nur mit Zustimmung des Nutzers). " +
       "force_logout=true beendet eine bestehende Sitzung auf einem anderen Gerät.",
-    inputSchema: { force_logout: z.boolean().default(false) },
+    inputSchema: {
+      user: z.string().optional().describe("E-Mail-Adresse des Kontos (= API-Feld user)"),
+      password: z.string().optional(),
+      remember: z
+        .boolean()
+        .default(false)
+        .describe("Zugangsdaten nach erfolgreichem Login lokal speichern"),
+      force_logout: z.boolean().default(false),
+    },
   },
-  async ({ force_logout }) => {
+  async (args) => {
     try {
-      return ok(await api.login(force_logout));
+      return ok(await doLogin(args));
     } catch (e) {
       return fail(e);
     }
+  },
+);
+
+server.registerTool(
+  "easybasar_logout",
+  {
+    title: "Abmelden / gespeicherte Zugangsdaten löschen",
+    description:
+      "Beendet die lokale Session. forget=true löscht zusätzlich die gespeicherten Zugangsdaten.",
+    inputSchema: { forget: z.boolean().default(false) },
+  },
+  async ({ forget }) => {
+    api.logout();
+    return ok({ loggedIn: false, credentialsDeleted: forget ? await deleteCredentials() : false });
   },
 );
 
@@ -126,7 +224,9 @@ server.registerTool(
   async () =>
     ok({
       loggedIn: api.isLoggedIn,
-      userConfigured: Boolean(process.env.EASYBASAR_USER),
+      user: api.currentUser,
+      savedCredentials: (await loadCredentials())?.user ?? null,
+      credentialsFile,
       lastLogin: api.lastLogin,
       bases: BASES,
     }),

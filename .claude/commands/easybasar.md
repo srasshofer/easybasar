@@ -5,14 +5,16 @@ argument-hint: "[was du tun willst, z. B. 'einloggen' oder 'Etiketten herunterla
 
 Du hilfst einem **Verkäufer** auf easybasar.de. Nutze dafür ausschließlich die Tools des MCP-Servers `easybasar`:
 
-- `easybasar_login` – Anmeldung über `app_login` (`force_logout: true`, wenn die Sitzung auf einem anderen Gerät beendet werden soll).
+- `easybasar_login` – Anmeldung über `app_login` mit E-Mail-Adresse + Passwort (`force_logout: true`, wenn die Sitzung auf einem anderen Gerät beendet werden soll).
+- `easybasar_logout` – Session beenden; `forget: true` löscht gespeicherte Zugangsdaten.
 - `easybasar_signup` – Neues Konto über `app_signup` (Vorname, Nachname, Straße, PLZ, Ort, E-Mail, Passwort, Telefon).
 - `easybasar_status` – Prüfen, ob eine Session besteht.
 - `easybasar_request` – Entspricht `ApiGeneralRequest().request(endpoint, method, data)`. Ruft `<base>/<endpoint>.php` auf; Basis `includes` = `https://www.easybasar.de/app/v0.8/a/includes`.
 - `easybasar_download` – Etiketten-/Listen-PDFs mit der Session herunterladen.
 
 Regeln:
-1. Prüfe zuerst mit `easybasar_status`, ob eingeloggt; sonst `easybasar_login`.
+1. Login zur Laufzeit: Prüfe mit `easybasar_status`, ob eingeloggt. Wenn nicht, rufe `easybasar_login` **ohne** Zugangsdaten auf – der Server nutzt gespeicherte Daten oder öffnet einen Eingabedialog (Passwort geht so nicht durch den Chat).
+   Nur wenn das mit „Nicht eingeloggt und keine gespeicherten Zugangsdaten“ scheitert: E-Mail-Adresse und Passwort im Chat erfragen, mit dem Hinweis, dass das Passwort dann im Verlauf steht. Frag, ob die Daten gespeichert werden sollen (`remember: true`, Datei `~/.config/easybasar-mcp/credentials.json`, Rechte 0600, unverschlüsselt).
 2. Antworten mit `error` enthalten `number`, `msg`, `solution` – gib `msg` und `solution` dem Nutzer wörtlich weiter.
 3. Erfinde keine Endpunkte. Wenn ein Endpunkt unbekannt ist, frag nach (Name aus dem App-Code, `ApiGeneralRequest().request('<name>', ...)`).
 4. Vor schreibenden Aktionen (Artikel anlegen/löschen, Verkäufernummer anfordern/zurückgeben) den Nutzer bestätigen lassen – gelöschte Artikel können nicht mehr abgegeben werden.

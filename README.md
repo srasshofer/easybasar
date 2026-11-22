@@ -7,10 +7,19 @@ MCP-Server, der die App-API von easybasar.de anspricht – als Nachbau von `ApiG
 ```bash
 npm install
 npm run build
-export EASYBASAR_USER='dein-benutzername'
-export EASYBASAR_PASSWORD='dein-passwort'
 claude   # im Repo starten; .mcp.json registriert den Server "easybasar"
 ```
+
+## Login zur Laufzeit
+
+`easybasar_login` (Benutzer = E-Mail-Adresse) sucht Zugangsdaten in dieser Reihenfolge:
+
+1. direkt übergebene `user`/`password`
+2. gespeicherte Daten in `~/.config/easybasar-mcp/credentials.json` (bzw. `$EASYBASAR_CONFIG_DIR`)
+3. Umgebungsvariablen `EASYBASAR_USER` / `EASYBASAR_PASSWORD` (optional)
+4. Eingabedialog des MCP-Clients (Elicitation) mit Option „speichern“ – das Passwort läuft dabei nicht durch das Sprachmodell
+
+Gespeichert wird nur nach erfolgreichem Login und nur auf Wunsch (`remember: true` oder Häkchen im Dialog). Die Datei ist **unverschlüsselt** (Rechte 0600). Löschen: `easybasar_logout` mit `forget: true`.
 
 Dann in Claude Code: `/easybasar einloggen und meine Basare anzeigen`.
 
@@ -28,8 +37,9 @@ Endpunkte werden als `<basis>/<endpoint>.php` aufgerufen, Parameter als `applica
 
 ## Tools
 
-- `easybasar_login` – `app_login` mit `user`, `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
+- `easybasar_login` – `app_login` mit `user` (E-Mail), `password`, `o=a`, `v=v0.8`, `c=1.0.0`, `l=de`, optional `force_logout=true`
 - `easybasar_signup` – neues Konto über `app_signup`; `conditions` und `data_protection` müssen `true` sein (nur nach Zustimmung des Nutzers). Danach Aktivierungslink in der E-Mail klicken.
+- `easybasar_logout` – Session beenden, optional gespeicherte Zugangsdaten löschen
 - `easybasar_status` – Session-Status und letzte Login-Antwort
 - `easybasar_request` – beliebiger Endpunkt (`endpoint`, `method`, `data`, `base`); loggt bei Bedarf automatisch (neu) ein
 - `easybasar_download` – Datei/PDF speichern (Standard-Basis `pdf`, Ziel `EASYBASAR_DOWNLOAD_DIR`, Standard `./downloads`)

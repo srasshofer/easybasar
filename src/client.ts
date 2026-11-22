@@ -34,10 +34,8 @@ export class ApiGeneralRequest {
   private cookies = new Map<string, string>();
   private loginResponse: unknown = null;
 
-  constructor(
-    private readonly user?: string,
-    private readonly password?: string,
-  ) {}
+  private user?: string;
+  private password?: string;
 
   get isLoggedIn(): boolean {
     return this.loginResponse !== null;
@@ -107,12 +105,12 @@ export class ApiGeneralRequest {
     return res;
   }
 
-  async login(forceLogout = false, user = this.user, password = this.password) {
-    if (!user || !password) {
-      throw new Error(
-        "Keine Zugangsdaten: EASYBASAR_USER und EASYBASAR_PASSWORD setzen.",
-      );
-    }
+  get currentUser(): string | undefined {
+    return this.isLoggedIn ? this.user : undefined;
+  }
+
+  /** Login mit Zugangsdaten zur Laufzeit; bei Erfolg werden sie für Re-Logins gemerkt. */
+  async login(user: string, password: string, forceLogout = false) {
     const postData: Data = {
       user,
       password,
@@ -125,12 +123,21 @@ export class ApiGeneralRequest {
     this.loginResponse = await this.request("app_login", "POST", postData, {
       Accept: "application/json",
     });
+    this.user = user;
+    this.password = password;
     return this.loginResponse;
   }
 
-  /** Stellt sicher, dass eine Session besteht (Login mit Zugangsdaten aus der Umgebung). */
-  async ensureLogin(): Promise<void> {
-    if (!this.isLoggedIn) await this.login();
+  /** Erneuter Login mit den zuletzt erfolgreichen Zugangsdaten. */
+  async relogin() {
+    if (!this.user || !this.password) throw new Error("Nicht eingeloggt.");
+    return this.login(this.user, this.password);
+  }
+
+  logout() {
+    this.cookies.clear();
+    this.loginResponse = null;
+    this.user = this.password = undefined;
   }
 
   private cookieHeader(): Record<string, string> {
