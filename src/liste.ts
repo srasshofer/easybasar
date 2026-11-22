@@ -54,33 +54,35 @@ export interface Item {
   verkaeufernummer?: string;
 }
 
-/** Lädt die Artikel der gewünschten Listen (nichts wird lokal gespeichert). */
+/**
+ * Lädt die Artikel der gewünschten Listen (nichts wird lokal gespeichert).
+ * Die Schlüssel in itemlist sind IDs der Artikeltabelle, nicht die Modul-IDs – deshalb wird
+ * jede Liste einzeln abgefragt, damit die Zuordnung eindeutig ist.
+ */
 export async function loadItems(api: ApiGeneralRequest, lists: ListName[]): Promise<Item[]> {
-  const res = (await api.request("item_all_get", "POST", itemAllGetData(lists))) as {
-    itemlist?: Record<string, { add?: RawItem[] }>;
-  };
-  const byId = new Map<string, string>(lists.map((l) => [LISTEN[l].id, LISTEN[l].titel]));
-  const entries = Object.entries(res?.itemlist ?? {});
   const items: Item[] = [];
-  for (const [key, mod] of entries) {
-    // Antwort-Schlüssel = Modul-ID; bei nur einer angefragten Liste eindeutig zuordenbar.
-    const liste = byId.get(key) ?? (lists.length === 1 ? LISTEN[lists[0]].titel : `Liste ${key}`);
-    for (const r of mod?.add ?? []) {
-      items.push({
-        liste,
-        id: String(r.id),
-        artikelnummer: String(r.number),
-        beschreibung: r.desc,
-        preis: Number(r.price),
-        rabatt: r.discount ? Number(r.discount) : undefined,
-        verkaufspreis:
-          r.sold_price !== undefined && Number(r.sold_price) !== Number(r.price)
-            ? Number(r.sold_price)
-            : undefined,
-        gedruckt: Boolean(Number(r.print)),
-        bearbeitbar: Boolean(Number(r.edit)),
-        verkaeufernummer: r.chiffre,
-      });
+  for (const l of lists) {
+    const res = (await api.request("item_all_get", "POST", itemAllGetData([l]))) as {
+      itemlist?: Record<string, { add?: RawItem[] }>;
+    };
+    for (const mod of Object.values(res?.itemlist ?? {})) {
+      for (const r of mod?.add ?? []) {
+        items.push({
+          liste: LISTEN[l].titel,
+          id: String(r.id),
+          artikelnummer: String(r.number),
+          beschreibung: r.desc,
+          preis: Number(r.price),
+          rabatt: r.discount ? Number(r.discount) : undefined,
+          verkaufspreis:
+            r.sold_price !== undefined && Number(r.sold_price) !== Number(r.price)
+              ? Number(r.sold_price)
+              : undefined,
+          gedruckt: Boolean(Number(r.print)),
+          bearbeitbar: Boolean(Number(r.edit)),
+          verkaeufernummer: r.chiffre,
+        });
+      }
     }
   }
   return items;

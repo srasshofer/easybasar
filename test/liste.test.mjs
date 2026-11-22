@@ -21,3 +21,14 @@ test("Antwort auswerten, Artikel per Nummer finden", async () => {
   assert.equal(found[0].id, "27002241");
   assert.deepEqual(missing, ["999"]);
 });
+
+test("mehrere Listen: je Liste ein Aufruf, Zuordnung unabhängig vom Antwort-Schlüssel", async () => {
+  const calls = [];
+  const api = { request: async (ep, m, d) => { calls.push(d.modul); return d.modul === "272"
+    ? { itemlist: { "999": { add: [{ id: "5", number: "55", desc: "verkauft", price: 2, sold_price: 2, edit: 0 }] } } }
+    : sample; } };
+  const items = await loadItems(api, ["erfasst", "verkauft"]);
+  assert.deepEqual(calls, ["270", "272"]);
+  assert.equal(items.filter((i) => i.liste === "Erfasst").length, 3);
+  assert.equal(items.find((i) => i.artikelnummer === "55").liste, "Verkauft");
+});
