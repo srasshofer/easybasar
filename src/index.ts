@@ -36,7 +36,7 @@ const api = new ApiGeneralRequest();
 const basare = new BasarState(api, () => renewSession());
 const downloadDir = path.resolve(process.env.EASYBASAR_DOWNLOAD_DIR ?? "downloads");
 
-const server = new McpServer({ name: "easybasar", version: "0.10.1" });
+const server = new McpServer({ name: "easybasar", version: "0.10.2" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -461,12 +461,9 @@ server.registerTool(
     description:
       "Erfasst einen neuen Artikel im gewählten Basar (item_tool.php). Lädt vorher das Formular, " +
       "prüft alles wie easybasar_artikel_pruefen und sendet nur, wenn die Prüfung fehlerfrei ist. " +
-      "Nur aufrufen, nachdem der Nutzer die Werte bestätigt hat (bestaetigt=true). " +
-      "Die Beschreibung kann danach nicht mehr geändert werden.",
-    inputSchema: {
-      ...itemSchema,
-      bestaetigt: z.literal(true).describe("Nutzer hat die angezeigten Werte bestätigt"),
-    },
+      "Ohne Rückfrage aufrufen, sobald Beschreibung und Preis feststehen (und bei aktivem Rabatt die Wahl " +
+      "des Nutzers). Fehler werden zurückgegeben, dann nichts erfasst.",
+    inputSchema: itemSchema,
   },
   async ({ felder, preis, rabatt }) => {
     try {

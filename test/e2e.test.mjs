@@ -71,13 +71,13 @@ test("mehrere Basare: erst Auswahl, dann beim Server setzen", async () => {
 });
 
 test("Artikel erfassen: Login → Basar → Formular → item_tool", async () => {
-  const bad = await call("easybasar_artikel_erfassen", { felder: { Beschreibung: "Jacke" }, preis: 2.3, bestaetigt: true });
+  const bad = await call("easybasar_artikel_erfassen", { felder: { Beschreibung: "Jacke" }, preis: 2.3 });
   assert.equal(bad.err, true);
   assert.match(bad.text, /Schritten von 0,50/);
   assert.equal(posts.filter((p) => p.ep === "item_tool").length, 0, "ungültiger Artikel wird nicht gesendet");
 
   const r = await call("easybasar_artikel_erfassen", {
-    felder: { "Größe": "104", Farbe: "blau", Beschreibung: "Regenjacke" }, preis: "2,50", bestaetigt: true,
+    felder: { "Größe": "104", Farbe: "blau", Beschreibung: "Regenjacke" }, preis: "2,50",
   });
   assert.equal(r.err, false, r.text);
   assert.match(r.text, /^Artikel wurde erfasst 4110000167149/);
@@ -133,11 +133,6 @@ test("Artikel löschen: Nummer → ID aus Liste, api/php, itemDeleteFinal, iid[]
 test("Bearbeiten: unbekannter oder gesperrter Artikel wird nicht gesendet", async () => {
   assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "000", preis: 1, bestaetigt: true })).text, /nicht unter den erfassten/);
   assert.match((await call("easybasar_artikel_bearbeiten", { artikelnummer: "777", preis: 1, bestaetigt: true })).text, /kann nicht mehr bearbeitet/);
-});
-
-test("ohne Bestätigung kein Erfassen", async () => {
-  const r = await call("easybasar_artikel_erfassen", { felder: { Beschreibung: "x" }, preis: 1 });
-  assert.equal(r.err, true);
 });
 
 test.after(async () => { await client.close(); srv.close(); });
